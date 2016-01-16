@@ -1,0 +1,16 @@
+.DS_Store
+.remote-sync.json
+.sync-config.cson
+
+*__pycache__*
+*.pyc
+*.png
+*.model
+*.ipynb_checkpoints
+*.ipynb
+*.c
+*.so
+*.o
+*.jpg
+
+faster_rcnn_models
