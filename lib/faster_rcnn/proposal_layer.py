@@ -13,26 +13,21 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # -----------------------------------------------------------------------------
 
+from chainer.cuda import to_cpu
 from lib.cpu_nms import cpu_nms as nms
 from lib.faster_rcnn.bbox_transform import bbox_transform_inv
 from lib.faster_rcnn.bbox_transform import clip_boxes
 from lib.faster_rcnn.generate_anchors import generate_anchors
 
-import chainer
 import numpy as np
 
-if chainer.cuda.available:
-    from chainer.cuda import cupy as xp
-else:
-    import numpy as xp
 
+class ProposalLayer(object):
+    """Generate deterministic proposal regions (All on CPU)
 
-class ProposalLayer(chainer.Chain):
-    """
     Outputs object detection proposals by applying estimated bounding-box
     transformations to a set of regular boxes (called "anchors").
     """
-
     RPN_NMS_THRESH = 0.7
     RPN_PRE_NMS_TOP_N = 12000
     RPN_POST_NMS_TOP_N = 2000
@@ -40,8 +35,7 @@ class ProposalLayer(chainer.Chain):
 
     def __init__(self, feat_stride=16, anchor_scales=[4, 8, 16, 32]):
         self._feat_stride = feat_stride
-        self._anchors = xp.asarray(
-            generate_anchors(scales=xp.array(anchor_scales)))
+        self._anchors = generate_anchors(scales=np.array(anchor_scales))
         self._num_anchors = self._anchors.shape[0]
 
     def __call__(self, rpn_cls_prob, rpn_bbox_pred, im_info, train):
@@ -65,8 +59,8 @@ class ProposalLayer(chainer.Chain):
 
         # the first set of _num_anchors channels are bg probs
         # the second set are the fg probs, which we want
-        scores = rpn_cls_prob.data[:, self._num_anchors:, :, :]
-        bbox_deltas = rpn_bbox_pred.data
+        scores = to_cpu(rpn_cls_prob.data[:, self._num_anchors:, :, :])
+        bbox_deltas = to_cpu(rpn_bbox_pred.data)
         im_info = im_info[0, :]
 
         # 1. Generate proposals from bbox deltas and shifted anchors
@@ -75,8 +69,8 @@ class ProposalLayer(chainer.Chain):
         # Enumerate all shifts
         shift_x = np.arange(0, width) * self._feat_stride
         shift_y = np.arange(0, height) * self._feat_stride
-        shift_x, shift_y = xp.asarray(np.meshgrid(shift_x, shift_y))
-        shifts = xp.vstack((shift_x.ravel(), shift_y.ravel(),
+        shift_x, shift_y = np.asarray(np.meshgrid(shift_x, shift_y))
+        shifts = np.vstack((shift_x.ravel(), shift_y.ravel(),
                             shift_x.ravel(), shift_y.ravel())).transpose()
 
         # Enumerate all shifted anchors:
@@ -108,16 +102,13 @@ class ProposalLayer(chainer.Chain):
         scores = scores.transpose((0, 2, 3, 1)).reshape((-1, 1))
 
         # Convert anchors into proposals via bbox transformations
-        proposals = bbox_transform_inv(anchors, bbox_deltas)
+        proposals = bbox_transform_inv(anchors, bbox_deltas, -1)
 
         # 2. clip predicted boxes to image
         proposals = clip_boxes(proposals, im_info[:2])
 
         # 3. remove predicted boxes with either height or width < threshold
         # (NOTE: convert min_size to input image scale stored in im_info[2])
-        if chainer.cuda.available:
-            proposals = xp.asnumpy(proposals)
-            scores = xp.asnumpy(scores)
         keep = _filter_boxes(proposals, min_size * im_info[2])
         proposals = proposals[keep, :]
         scores = scores[keep]
@@ -142,8 +133,8 @@ class ProposalLayer(chainer.Chain):
         # Output rois blob
         # Our RPN implementation only supports a single input image, so all
         # batch inds are 0
-        batch_inds = np.zeros((proposals.shape[0], 1), dtype=xp.float32)
-        rois = xp.asarray(np.hstack((batch_inds, proposals)), dtype=xp.float32)
+        batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
+        rois = np.asarray(np.hstack((batch_inds, proposals)), dtype=np.float32)
 
         return rois
 

@@ -12,15 +12,13 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # --------------------------------------------------------
 
-import chainer
-
-if chainer.cuda.available:
-    from chainer.cuda import cupy as xp
-else:
-    import numpy as xp
+from chainer.cuda import Device
+from chainer.cuda import get_array_module
 
 
 def bbox_transform(ex_rois, gt_rois):
+    xp = get_array_module(ex_rois)
+
     ex_widths = ex_rois[:, 2] - ex_rois[:, 0] + 1.0
     ex_heights = ex_rois[:, 3] - ex_rois[:, 1] + 1.0
     ex_ctr_x = ex_rois[:, 0] + 0.5 * ex_widths
@@ -41,11 +39,19 @@ def bbox_transform(ex_rois, gt_rois):
     return targets
 
 
-def bbox_transform_inv(boxes, deltas):
+def bbox_transform_inv(boxes, deltas, gpu=-1):
+    if gpu >= 0:
+        with Device(gpu):
+            return _bbox_transform_inv(boxes, deltas)
+    else:
+        return _bbox_transform_inv(boxes, deltas)
+
+
+def _bbox_transform_inv(boxes, deltas):
+    xp = get_array_module(boxes)
+
     if boxes.shape[0] == 0:
         return xp.zeros((0, deltas.shape[1]), dtype=deltas.dtype)
-
-    boxes = boxes.astype(deltas.dtype, copy=False)
 
     widths = boxes[:, 2] - boxes[:, 0] + 1.0
     heights = boxes[:, 3] - boxes[:, 1] + 1.0
@@ -75,10 +81,17 @@ def bbox_transform_inv(boxes, deltas):
     return pred_boxes
 
 
-def clip_boxes(boxes, im_shape):
-    """
-    Clip boxes to image boundaries.
-    """
+def clip_boxes(boxes, im_shape, gpu=-1):
+    if gpu >= 0:
+        with Device(gpu):
+            return _clip_boxes(boxes, im_shape)
+    else:
+        return _clip_boxes(boxes, im_shape)
+
+
+def _clip_boxes(boxes, im_shape):
+    """Clip boxes to image boundaries."""
+    xp = get_array_module(boxes)
 
     # x1 >= 0
     boxes[:, 0::4] = xp.maximum(xp.minimum(boxes[:, 0::4], im_shape[1] - 1), 0)
