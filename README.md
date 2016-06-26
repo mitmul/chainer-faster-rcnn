@@ -25,6 +25,10 @@ conda install -c https://conda.binstar.org/menpo opencv3
 conda install opencv
 ```
 
+### For Windows users
+
+There's a known problem in cpu_nms.pyx. But a workaround has been posted [here](https://github.com/mitmul/chainer-faster-rcnn/issues/1) (and see also [the issue posted to the original py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn/issues/36)).
+
 ## Inference
 
 ### 1\. Download pre-trained model
@@ -50,8 +54,6 @@ python forward.py --img_fn 004545.jpg --gpu 0
 ```
 
 `--gpu 0` turns on GPU. When you turn off GPU, use `--gpu -1` or remove `--gpu` option.
-
-To use forward.py with CPU, you have to apply this diff due to a known bug of Chainer: <https://github.com/pfnet/chainer/pull/1273>
 
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/result.png)
 
