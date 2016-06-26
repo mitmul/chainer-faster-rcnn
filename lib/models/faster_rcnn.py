@@ -3,11 +3,11 @@
 
 # Copyright (c) 2016 Shunta Saito
 
-from chainer.cuda import get_array_module
 from chainer.cuda import to_gpu
 from lib.faster_rcnn.bbox_transform import bbox_transform_inv
 from lib.faster_rcnn.bbox_transform import clip_boxes
 from lib.faster_rcnn.proposal_layer import ProposalLayer
+from lib.faster_rcnn.roi_pooling_2d import roi_pooling_2d
 from lib.models.VGG16 import VGG16
 
 import chainer
@@ -54,7 +54,7 @@ class FasterRCNN(chainer.Chain):
         rois = chainer.Variable(rois, volatile=not self.train)
 
         # RCNN
-        pool5 = F.roi_pooling_2d(self.trunk.feature, rois, 7, 7, 0.0625)
+        pool5 = roi_pooling_2d(self.trunk.feature, rois, 7, 7, 0.0625)
         fc6 = F.relu(self.fc6(pool5))
         fc7 = F.relu(self.fc7(fc6))
         self.scores = F.softmax(self.cls_score(fc7))
