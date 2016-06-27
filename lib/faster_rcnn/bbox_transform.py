@@ -12,7 +12,7 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # --------------------------------------------------------
 
-from chainer.cuda import Device
+from chainer import cuda
 from chainer.cuda import get_array_module
 
 
@@ -41,7 +41,7 @@ def bbox_transform(ex_rois, gt_rois):
 
 def bbox_transform_inv(boxes, deltas, gpu=-1):
     if gpu >= 0:
-        with Device(gpu):
+        with cuda.Device(gpu):
             return _bbox_transform_inv(boxes, deltas)
     else:
         return _bbox_transform_inv(boxes, deltas)
@@ -83,7 +83,7 @@ def _bbox_transform_inv(boxes, deltas):
 
 def clip_boxes(boxes, im_shape, gpu=-1):
     if gpu >= 0:
-        with Device(gpu):
+        with cuda.Device(gpu):
             return _clip_boxes(boxes, im_shape)
     else:
         return _clip_boxes(boxes, im_shape)
