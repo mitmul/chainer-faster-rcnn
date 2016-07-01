@@ -20,11 +20,10 @@ from utils.cython_bbox import bbox_overlaps
 from fast_rcnn.bbox_transform import bbox_transform
 
 
-class AnchorTarget(object):
-    """
+class AnchorTargetLayer(object):
+    """Assign anchors to ground-truth targets
 
-    Args:
-        feat_stride (int):
+    Produces anchor classification labels and bounding-box regression targets.
     """
 
     RPN_NEGATIVE_OVERLAP = 0.3
@@ -42,8 +41,18 @@ class AnchorTarget(object):
         self.allowed_border = 0
 
     def __call__(self, x, gt_boxes, im_info):
-        height, width = x.data.shape[2:]
+        # Algorithm:
+        #
+        # for each (H, W) location i
+        #   generate 9 anchor boxes centered on cell i
+        #   apply predicted bbox deltas at cell i to each of the 9 anchors
+        # filter out-of-image anchors
+        # measure GT overlap
+        # im_info: (height, width, scale)
+        assert x.data.shape[0] == 1, \
+            'Only single item batches are supported'
 
+        height, width = x.data.shape[2:]
         shift_x = np.arange(0, width) * self.feat_stride
         shift_y = np.arange(0, height) * self.feat_stride
         shift_x, shift_y = np.meshgrid(shift_x, shift_y)
