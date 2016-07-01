@@ -29,8 +29,10 @@ class ProposalLayer(object):
     transformations to a set of regular boxes (called "anchors").
     """
     RPN_NMS_THRESH = 0.7
-    RPN_PRE_NMS_TOP_N = 12000
-    RPN_POST_NMS_TOP_N = 2000
+    TRAIN_RPN_PRE_NMS_TOP_N = 12000
+    TRAIN_RPN_POST_NMS_TOP_N = 2000
+    TEST_RPN_PRE_NMS_TOP_N = 6000
+    TEST_RPN_POST_NMS_TOP_N = 300
     RPN_MIN_SIZE = 16
 
     def __init__(self, feat_stride=16, anchor_scales=[4, 8, 16, 32]):
@@ -52,8 +54,10 @@ class ProposalLayer(object):
         # take after_nms_topN proposals after NMS
         # return the top proposals (-> RoIs top, scores top)
 
-        pre_nms_topN = self.RPN_PRE_NMS_TOP_N if train else 6000
-        post_nms_topN = self.RPN_POST_NMS_TOP_N if train else 300
+        pre_nms_topN = self.TRAIN_RPN_PRE_NMS_TOP_N \
+            if train else self.TEST_RPN_PRE_NMS_TOP_N
+        post_nms_topN = self.TRAIN_RPN_POST_NMS_TOP_N \
+            if train else self.TEST_RPN_POST_NMS_TOP_N
         nms_thresh = self.RPN_NMS_THRESH
         min_size = self.RPN_MIN_SIZE
 

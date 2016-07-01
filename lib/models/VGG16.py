@@ -43,8 +43,6 @@ class VGG16(chainer.Chain):
             ('relu5_2', F.ReLU()),
             ('conv5_3', L.Convolution2D(512, 512, 3, 1, 1)),
             ('relu5_3', F.ReLU()),
-            ('rpn_conv_3x3', L.Convolution2D(512, 512, 3, 1, 1)),
-            ('rpn_relu_3x3', F.ReLU()),
         ]
         for name, link in self.trunk:
             if 'conv' in name:
@@ -53,6 +51,5 @@ class VGG16(chainer.Chain):
     def __call__(self, x):
         for name, f in self.trunk:
             x = (getattr(self, name) if 'conv' in name else f)(x)
-            if 'relu5_3' in name:
-                self.feature = x
+        self.feature = x
         return x

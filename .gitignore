@@ -12,6 +12,7 @@
 *.so
 *.o
 *.jpg
+*.png
 
 faster_rcnn_models
 lib/build

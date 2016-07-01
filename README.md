@@ -38,6 +38,8 @@ wget https://www.dropbox.com/s/2fadbs9q50igar8/VGG16_faster_rcnn_final.model?dl=
 mv VGG16_faster_rcnn_final.model?dl=0 VGG16_faster_rcnn_final.model
 ```
 
+**NOTE:** The model definition in `FasterRCNN.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
+
 ### 2\. Build extensions
 
 ```
@@ -59,7 +61,18 @@ python forward.py --img_fn 004545.jpg --gpu 0
 
 ## Training
 
-will be updated soon
+### 1\. Download dataset
+
+```
+mkdir data
+cd data
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
+tar xvf VOCtrainval_06-Nov-2007.tar
+tar xvf VOCtest_06-Nov-2007.tar
+tar xvf VOCdevkit_08-Jun-2007.tar
+```
 
 ## Framework
 

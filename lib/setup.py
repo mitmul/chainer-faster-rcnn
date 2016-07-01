@@ -11,7 +11,7 @@ except AttributeError:
 
 ext_modules = [
     Extension(
-        "cython_bbox",
+        "bbox",
         ["faster_rcnn/bbox.pyx"],
         include_dirs=[numpy_include]
     ),

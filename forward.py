@@ -4,7 +4,7 @@
 from chainer import serializers
 from chainer.cuda import to_gpu
 from lib.cpu_nms import cpu_nms as nms
-from lib.models.faster_rcnn import FasterRCNN
+from lib.models.FasterRCNN import FasterRCNN
 
 import argparse
 import chainer

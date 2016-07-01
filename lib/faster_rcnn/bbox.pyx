@@ -6,7 +6,7 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # --------------------------------------------------------
 
-cimport cython
+# cimport cython
 import numpy as np
 cimport numpy as np
 
