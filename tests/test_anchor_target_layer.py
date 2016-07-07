@@ -17,7 +17,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         self.x = np.arange(1 * self.n_channels *
                            self.height * self.width, dtype=np.float32)
         self.x = self.x.reshape(1, self.n_channels, self.height, self.width)
-        self.im_info = [224, 224, 0.85]
+        self.im_info = np.array([[224, 224, 0.85]])
         self.anchor_target_layer = AnchorTargetLayer(
             self.feat_stride, 2**np.arange(1, 6))
         self.height, self.width = self.x.shape[2:]
@@ -56,7 +56,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
                         [-247., -247.,  264.,  264.],
                         [-35.,  -79.,   52.,   96.],
                         [-79., -167.,   96.,  184.],
-                        [-167., -343.,  184.,  360.]])
+                        [-167., -343.,  184.,  360.]]) - 1
         self.assertEqual(anchor_target_layer.anchors.shape, ret.shape)
         np.testing.assert_array_equal(anchor_target_layer.anchors, ret)
 
@@ -163,7 +163,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         self.assertEqual(len(self.anchors), len(self.max_overlaps))
         self.assertEqual(len(self.gt_max_overlaps), len(self.gt_boxes))
         self.assertEqual(len(self.gt_argmax_overlaps), len(self.gt_boxes))
-        canvas = np.zeros((self.im_info[0], self.im_info[1]))
+        canvas = np.zeros((int(self.im_info[0, 0]), int(self.im_info[0, 1])))
         for bbox in self.anchors[self.gt_argmax_overlaps]:
             x1, y1, x2, y2 = map(int, bbox)
             cv.rectangle(canvas, (x1, y1), (x2, y2), 255)
@@ -174,7 +174,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         neg_ids = np.where(self.labels == 0)[0]
         pos_ids = np.where(self.labels == 1)[0]
         ignore_ids = np.where(self.labels == -1)[0]
-        canvas = np.zeros((self.im_info[0], self.im_info[1]))
+        canvas = np.zeros((int(self.im_info[0, 0]), int(self.im_info[0, 1])))
         for bbox in self.anchors[pos_ids]:
             x1, y1, x2, y2 = map(int, bbox)
             cv.rectangle(canvas, (x1, y1), (x2, y2), 255)

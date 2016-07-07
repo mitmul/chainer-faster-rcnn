@@ -68,6 +68,8 @@ class AnchorTargetLayer(object):
 
     def keep_inside(self, all_anchors, im_info):
         # only keep anchors inside the image
+        assert len(im_info) == 1
+        im_info = im_info[0]
         inds_inside = np.where(
             (all_anchors[:, 0] >= -self.allowed_border) &
             (all_anchors[:, 1] >= -self.allowed_border) &
@@ -217,6 +219,7 @@ class AnchorTargetLayer(object):
         # labels
         labels = labels.reshape(
             (1, height, width, self.n_anchors)).transpose(0, 3, 1, 2)
+        labels = labels.astype(np.int32)
 
         # bbox_targets
         bbox_targets = bbox_targets.reshape(

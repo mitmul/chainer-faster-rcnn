@@ -70,6 +70,8 @@ class ProposalTargetLayer(object):
         labels, rois, bbox_targets, bbox_inside_weights = self._sample_rois(
             all_rois, gt_boxes, fg_rois_per_image,
             rois_per_image, self._num_classes)
+        labels = labels.astype(np.int32)
+        rois = rois.astype(np.float32)
 
         return rois, labels, bbox_targets, bbox_inside_weights, \
             np.array(bbox_inside_weights > 0).astype(np.float32)
@@ -85,15 +87,14 @@ class ProposalTargetLayer(object):
             bbox_target (ndarray): N x 4K blob of regression targets
             bbox_inside_weights (ndarray): N x 4K blob of loss weights
         """
-
         clss = bbox_target_data[:, 0]
         bbox_targets = np.zeros((clss.size, 4 * num_classes), dtype=np.float32)
         bbox_inside_weights = np.zeros(bbox_targets.shape, dtype=np.float32)
         inds = np.where(clss > 0)[0]
         for ind in inds:
-            cls = clss[ind]
-            start = 4 * cls
-            end = start + 4
+            cls = int(clss[ind])
+            start = int(4 * cls)
+            end = int(start + 4)
             bbox_targets[ind, start:end] = bbox_target_data[ind, 1:]
             bbox_inside_weights[ind, start:end] = self.BBOX_INSIDE_WEIGHTS
         return bbox_targets, bbox_inside_weights

@@ -14,7 +14,7 @@ class RPN(chainer.Chain):
 
     def __init__(
             self, in_ch=512, out_ch=512, n_anchors=9, feat_stride=16,
-            anchor_scales=[8, 16, 32], num_classes=21):
+            anchor_scales=[8, 16, 32], num_classes=21, rpn_sigma=3.0):
         super(RPN, self).__init__(
             rpn_conv_3x3=L.Convolution2D(in_ch, out_ch, 3, 1, 1),
             rpn_cls_score=L.Convolution2D(out_ch, 2 * n_anchors, 1, 1, 0),
@@ -22,8 +22,9 @@ class RPN(chainer.Chain):
         )
         self.anchor_target_layer = AnchorTargetLayer(feat_stride)
         self.proposal_layer = ProposalLayer(feat_stride, anchor_scales)
+        self.rpn_sigma = rpn_sigma
 
-    def __call__(self, x, im_info, gt_boxes=None):
+    def __call__(self, x, im_info, gpu=-1, gt_boxes=None):
         n = x.data.shape[0]
         h = F.relu(self.rpn_conv_3x3(x))
         rpn_cls_score = self.rpn_cls_score(h)
@@ -41,11 +42,20 @@ class RPN(chainer.Chain):
             rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, \
                 rpn_bbox_outside_weights = self.anchor_target_layer(
                     rpn_cls_score, gt_boxes, im_info)
+            rpn_labels = rpn_labels.reshape((1, -1))
+
+            # make it into Variable
+            if gpu >= 0:
+                with chainer.cuda.Device(args.gpu):
+                    rpn_labels = chainer.cupy.asarray(rpn_labels)
+            # volatile = 'off' if gt_boxes is not None else 'on'
+            # rpn_labels = chainer.Variable(rpn_labels, volatile=volatile)
+
             rpn_cls_loss = F.softmax_cross_entropy(
-                self.rpn_cls_score_reshape, rpn_labels)
+                rpn_cls_score_reshape, rpn_labels)
             rpn_loss_bbox = smooth_l1_loss(
                 rpn_bbox_pred, rpn_bbox_targets, rpn_bbox_inside_weights,
-                rpn_bbox_outside_weights)
+                rpn_bbox_outside_weights, self.rpn_sigma)
 
             return rpn_cls_loss, rpn_loss_bbox, rois
         else:
