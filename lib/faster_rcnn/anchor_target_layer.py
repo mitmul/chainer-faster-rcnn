@@ -44,6 +44,7 @@ class AnchorTargetLayer(object):
     def generate_shifts(self, width, height):
         # 1. Generate proposals from bbox deltas and shifted anchors
         # width and height mean the spatial dimensions of feat map
+
         shift_x = np.arange(0, width) * self.feat_stride
         shift_y = np.arange(0, height) * self.feat_stride
         shift_x, shift_y = np.meshgrid(shift_x, shift_y)
