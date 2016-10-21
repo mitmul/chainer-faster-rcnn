@@ -6,6 +6,7 @@ from lib.faster_rcnn.anchor_target_layer import AnchorTargetLayer
 import chainer
 import cv2 as cv
 import numpy as np
+import six
 import unittest
 
 
@@ -19,7 +20,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         self.x = self.x.reshape(1, self.n_channels, self.height, self.width)
         self.im_info = np.array([[224, 224, 0.85]])
         self.anchor_target_layer = AnchorTargetLayer(
-            self.feat_stride, 2**np.arange(1, 6))
+            self.feat_stride, 2 ** np.arange(1, 6))
         self.height, self.width = self.x.shape[2:]
         self.shifts = self.anchor_target_layer.generate_shifts(
             self.width, self.height)
@@ -73,7 +74,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         ret[:, 1] -= min_y
         ret[:, 3] -= min_y
         for anchor in ret:
-            anchor = map(int, anchor)
+            anchor = list(six.moves.map(int, anchor))
             cv.rectangle(
                 canvas, (anchor[0], anchor[1]), (anchor[2], anchor[3]), 255)
         cv.imwrite('tests/anchors.png', canvas)
@@ -108,7 +109,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         shifts[:, 1] -= min_y
         shifts[:, 3] -= min_y
         for anchor in shifts:
-            anchor = map(int, anchor)
+            anchor = list(six.moves.map(int, anchor))
             cv.circle(canvas, (anchor[0], anchor[1]), 1, 255, -1)
         cv.imwrite('tests/shifts.png', canvas)
 
@@ -128,7 +129,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         self.all_anchors[:, 2] -= min_x
         self.all_anchors[:, 3] -= min_y
         for anchor in self.all_anchors:
-            anchor = map(int, anchor)
+            anchor = list(six.moves.map(int, anchor))
             cv.rectangle(
                 canvas, (anchor[0], anchor[1]), (anchor[2], anchor[3]), 255)
         cv.imwrite('tests/all_anchors.png', canvas)
@@ -148,7 +149,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         anchors[:, 2] -= min_x
         anchors[:, 3] -= min_y
         for i, anchor in enumerate(anchors):
-            anchor = map(int, anchor)
+            anchor = list(six.moves.map(int, anchor))
             _canvas = np.zeros(
                 (int(max_y - min_y) + 1,
                  int(max_x - min_x) + 1), dtype=np.uint8)
@@ -165,7 +166,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         self.assertEqual(len(self.gt_argmax_overlaps), len(self.gt_boxes))
         canvas = np.zeros((int(self.im_info[0, 0]), int(self.im_info[0, 1])))
         for bbox in self.anchors[self.gt_argmax_overlaps]:
-            x1, y1, x2, y2 = map(int, bbox)
+            x1, y1, x2, y2 = list(map(int, bbox))
             cv.rectangle(canvas, (x1, y1), (x2, y2), 255)
         cv.imwrite('tests/max_overlap_anchors.png', canvas)
 
@@ -176,7 +177,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
         ignore_ids = np.where(self.labels == -1)[0]
         canvas = np.zeros((int(self.im_info[0, 0]), int(self.im_info[0, 1])))
         for bbox in self.anchors[pos_ids]:
-            x1, y1, x2, y2 = map(int, bbox)
+            x1, y1, x2, y2 = list(map(int, bbox))
             cv.rectangle(canvas, (x1, y1), (x2, y2), 255)
         cv.imwrite('tests/pos_labels.png', canvas)
         np.testing.assert_array_less(

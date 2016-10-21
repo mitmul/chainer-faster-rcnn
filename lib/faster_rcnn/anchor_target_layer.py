@@ -17,7 +17,6 @@ from lib.bbox import bbox_overlaps
 from lib.faster_rcnn.bbox_transform import bbox_transform
 from lib.faster_rcnn.generate_anchors import generate_anchors
 
-import chainer
 import numpy as np
 
 
@@ -35,7 +34,7 @@ class AnchorTargetLayer(object):
     RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
     RPN_POSITIVE_WEIGHT = -1.0
 
-    def __init__(self, feat_stride=16, scales=2**np.arange(3, 6)):
+    def __init__(self, feat_stride=16, scales=2 ** np.arange(3, 6)):
         self.feat_stride = feat_stride
         self.anchors = generate_anchors(scales=scales)
         self.n_anchors = self.anchors.shape[0]
@@ -242,7 +241,9 @@ class AnchorTargetLayer(object):
 
     def _unmap(self, data, count, inds, fill=0):
         """Unmap a subset of item (data) back to the original set of items (of
-        size count)"""
+        size count)
+
+        """
 
         if len(data.shape) == 1:
             ret = np.empty((count, ), dtype=np.float32)
@@ -255,7 +256,9 @@ class AnchorTargetLayer(object):
         return ret
 
     def _compute_targets(self, ex_rois, gt_rois):
-        """Compute bounding-box regression targets for an image."""
+        """Compute bounding-box regression targets for an image.
+
+        """
 
         assert ex_rois.shape[0] == gt_rois.shape[0]
         assert ex_rois.shape[1] == 4

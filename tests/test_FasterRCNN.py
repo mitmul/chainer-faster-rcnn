@@ -4,9 +4,9 @@
 # Copyright (c) 2016 Shunta Saito
 
 from chainer import optimizers
-from lib.models.FasterRCNN import FasterRCNN
+from lib.models.faster_rcnn import FasterRCNN
 from lib.models.ResNet50 import ResNet50
-from lib.models.VGG16 import VGG16
+from lib.models.vgg16 import VGG16
 
 import chainer
 import numpy as np
@@ -28,6 +28,7 @@ class TestFasterRCNN(unittest.TestCase):
         ])
 
     def test_forward_cpu_VGG16(self):
+        print('test_forward_cpu_VGG16')
         gpu = -1
         trunk = VGG16
         rpn_in_ch = 512
@@ -43,6 +44,9 @@ class TestFasterRCNN(unittest.TestCase):
 
         model.train = False
         ret = model(chainer.Variable(self.x, volatile=True), self.im_info)
+        assert(len(ret) == 2)
+        assert(isinstance(ret[0], chainer.Variable))
+        assert(isinstance(ret[1], np.ndarray))
 
     def test_backward_cpu_VGG16(self):
         gpu = -1

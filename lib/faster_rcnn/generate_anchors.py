@@ -18,6 +18,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import numpy as np
+import six
 
 
 # Verify that we compute the same anchors as Shaoqing's matlab implementation:
@@ -49,7 +50,7 @@ import numpy as np
 
 
 def generate_anchors(base_size=16, ratios=[0.5, 1, 2],
-                     scales=2**np.arange(3, 6)):
+                     scales=2 ** np.arange(3, 6)):
     """
     Generate anchor (reference) windows by enumerating aspect ratios X
     scales wrt a reference (0, 0, 15, 15) window.
@@ -58,7 +59,7 @@ def generate_anchors(base_size=16, ratios=[0.5, 1, 2],
     base_anchor = np.array([1, 1, base_size, base_size]) - 1
     ratio_anchors = _ratio_enum(base_anchor, ratios)
     anchors = np.vstack([_scale_enum(ratio_anchors[i, :], scales)
-                         for i in xrange(ratio_anchors.shape[0])])
+                         for i in six.moves.range(ratio_anchors.shape[0])])
     return anchors
 
 

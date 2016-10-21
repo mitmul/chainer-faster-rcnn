@@ -46,7 +46,7 @@ class RPN(chainer.Chain):
 
             # make it into Variable
             if gpu >= 0:
-                with chainer.cuda.Device(args.gpu):
+                with chainer.cuda.Device(gpu):
                     rpn_labels = chainer.cupy.asarray(rpn_labels)
             # volatile = 'off' if gt_boxes is not None else 'on'
             # rpn_labels = chainer.Variable(rpn_labels, volatile=volatile)

@@ -28,9 +28,8 @@ class SmoothL1Loss(function.Function):
         flag = abs_diff < 1.0 / self.sigma2
         y = (flag * 0.5 * xp.square(self.diff) * self.sigma2 +
              (~flag) * (abs_diff - 0.5 / self.sigma2))
-        y = y.astype(numpy.float32)
         num = xp.prod(y.shape)
-        return xp.array(y.sum() / num),
+        return xp.array(y.sum() / num).astype(numpy.float32),
 
     def backward(self, inputs, gy):
         xp = cuda.get_array_module(*inputs)

@@ -87,6 +87,7 @@ class ProposalTargetLayer(object):
             bbox_target (ndarray): N x 4K blob of regression targets
             bbox_inside_weights (ndarray): N x 4K blob of loss weights
         """
+
         clss = bbox_target_data[:, 0]
         bbox_targets = np.zeros((clss.size, 4 * num_classes), dtype=np.float32)
         bbox_inside_weights = np.zeros(bbox_targets.shape, dtype=np.float32)

@@ -9,8 +9,8 @@ from lib.faster_rcnn.bbox_transform import clip_boxes
 from lib.faster_rcnn.proposal_target_layer import ProposalTargetLayer
 from lib.faster_rcnn.roi_pooling_2d import roi_pooling_2d
 from lib.faster_rcnn.smooth_l1_loss import smooth_l1_loss
-from lib.models.RPN import RPN
-from lib.models.VGG16 import VGG16
+from lib.models.rpn import RPN
+from lib.models.vgg16 import VGG16
 
 import chainer
 import chainer.functions as F
@@ -23,7 +23,6 @@ class FasterRCNN(chainer.Chain):
             self, gpu=-1, trunk=VGG16, rpn_in_ch=512, rpn_out_ch=512,
             n_anchors=9, feat_stride=16, anchor_scales=[8, 16, 32],
             num_classes=21, spatial_scale=0.0625, rpn_sigma=1.0, sigma=3.0):
-
         super(FasterRCNN, self).__init__()
         self.add_link('trunk', trunk())
         self.add_link('RPN', RPN(rpn_in_ch, rpn_out_ch, n_anchors, feat_stride,
