@@ -15,8 +15,8 @@ from utils.prepare_train import get_optimizer
 import chainer
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model_file', type=str)
-    parser.add_argument('--model_name', type=str)
-
-    args = parser.parse_args()
+    args = create_args()
+    result_dir = create_result_dir(args.model_name)
+    create_logger(args, result_dir)
+    get_model(args.model_file, args.model_name, n_classes, train=False, trunk_path=None,
+                  result_dir=None

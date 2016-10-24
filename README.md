@@ -59,21 +59,47 @@ python forward.py --img_fn 004545.jpg --gpu 0
 
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/result.png)
 
+### Layers
+
+Summarization of Faster R-CNN layers used during inference
+
+#### RPN
+
+The region proposal layer (RPN) is consisted of `AnchorTargetLayer` and `ProposalLayer`. RPN takes feature maps from trunk network like VGG-16, and performs 3x3 convolution to it. Then, it applies two independent 1x1 convolutions to the output of the first 3x3 convolution. Resulting outputs are `rpn_cls_score` and `rpn_bbox_pred`.
+
+- The shape of `rpn_cls_score` is `(N, 2 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes and each bbox should have 2 values that mean object/background.
+- The shape of `rpn_bbox_pred` is `(N, 4 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes, and each bbox is represented with 4 values that mean left top x & y, width & height.
+- `Proposallayer`
+
 ## Training
 
 ### 1\. Download dataset
 
 ```
-mkdir data
-cd data
+mkdir data; cd data
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
 tar xvf VOCtrainval_06-Nov-2007.tar
 tar xvf VOCtest_06-Nov-2007.tar
 tar xvf VOCdevkit_08-Jun-2007.tar
+rm -rf *.tar
 ```
 
-## Framework
+### 2\. Prepare ImageNet pre-trained model
+
+```
+cd docker
+bash install_caffe_docker.sh
+bash create_image.sh
+bash run_caffe_docker.sh
+```
+
+It creates `data/VGG16.model` that is converted from pre-trained model in Caffe format. The pre-trained model is the one distributed in [the official Model Zoo of Caffe wiki](https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md).
+
+#### Build Caffe
+
+
+## Workflow
 
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/Faster%20R-CNN.png)

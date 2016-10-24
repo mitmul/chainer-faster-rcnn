@@ -5,7 +5,6 @@
 
 from chainer import optimizers
 from lib.models.faster_rcnn import FasterRCNN
-from lib.models.ResNet50 import ResNet50
 from lib.models.vgg16 import VGG16
 
 import chainer
@@ -16,6 +15,7 @@ import unittest
 class TestFasterRCNN(unittest.TestCase):
 
     def setUp(self):
+        chainer.set_debug(True)
         np.random.seed(0)
         x = np.random.randint(0, 255, size=(224, 224, 3)).astype(np.float)
         x -= np.array([[[102.9801, 115.9465, 122.7717]]])
@@ -65,25 +65,31 @@ class TestFasterRCNN(unittest.TestCase):
         opt.setup(model)
 
         model.train = True
+
         rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
             model(chainer.Variable(self.x, volatile=False),
                   self.im_info, self.gt_boxes)
         model.zerograds()
         rpn_cls_loss.backward()
-        rpn_loss_bbox.backward()
-        loss_bbox.backward()
-        loss_cls.backward()
+        opt.update()
 
-    def test_cpu_ResNet50(self):
-        gpu = -1
-        trunk = ResNet50
-        rpn_in_ch = 512
-        rpn_out_ch = 512
-        n_anchors = 9
-        feat_stride = 16
-        anchor_scales = [8, 16, 32]
-        num_classes = 21
-        spatial_scale = 0.0625
-        model = FasterRCNN(
-            gpu, trunk, rpn_in_ch, rpn_out_ch, n_anchors, feat_stride,
-            anchor_scales, num_classes, spatial_scale)
+        rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
+            model(chainer.Variable(self.x, volatile=False),
+                  self.im_info, self.gt_boxes)
+        model.zerograds()
+        rpn_loss_bbox.backward()
+        opt.update()
+
+        rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
+            model(chainer.Variable(self.x, volatile=False),
+                  self.im_info, self.gt_boxes)
+        model.zerograds()
+        loss_bbox.backward()
+        opt.update()
+
+        rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
+            model(chainer.Variable(self.x, volatile=False),
+                  self.im_info, self.gt_boxes)
+        model.zerograds()
+        loss_cls.backward()
+        opt.update()
