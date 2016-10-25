@@ -4,7 +4,7 @@
 from chainer import serializers
 from chainer.cuda import to_gpu
 from lib.cpu_nms import cpu_nms as nms
-from lib.models.FasterRCNN import FasterRCNN
+from lib.models.faster_rcnn import FasterRCNN
 
 import argparse
 import chainer
@@ -23,7 +23,7 @@ PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 def get_model(gpu):
     model = FasterRCNN(gpu)
     model.train = False
-    serializers.load_npz('VGG16_faster_rcnn_final.model', model)
+    serializers.load_npz('data/VGG16_faster_rcnn_final.model', model)
 
     return model
 

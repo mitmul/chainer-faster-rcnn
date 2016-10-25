@@ -34,11 +34,12 @@ There's a known problem in cpu_nms.pyx. But a workaround has been posted [here](
 ### 1\. Download pre-trained model
 
 ```
-wget https://www.dropbox.com/s/2fadbs9q50igar8/VGG16_faster_rcnn_final.model?dl=0
-mv VGG16_faster_rcnn_final.model?dl=0 VGG16_faster_rcnn_final.model
+if [ ! -d data ]; then mkdir data; fi; cd data
+wget https://dl.dropboxusercontent.com/u/2498135/faster-rcnn/VGG16_faster_rcnn_final.model
+cd ..
 ```
 
-**NOTE:** The model definition in `FasterRCNN.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
+**NOTE:** The model definition in `faster_rcnn.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
 
 ### 2\. Build extensions
 
