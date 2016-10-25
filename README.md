@@ -69,7 +69,6 @@ The region proposal layer (RPN) is consisted of `AnchorTargetLayer` and `Proposa
 
 - The shape of `rpn_cls_score` is `(N, 2 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes and each bbox should have 2 values that mean object/background.
 - The shape of `rpn_bbox_pred` is `(N, 4 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes, and each bbox is represented with 4 values that mean left top x & y, width & height.
-- `Proposallayer`
 
 ## Training
 
@@ -83,7 +82,7 @@ wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
 tar xvf VOCtrainval_06-Nov-2007.tar
 tar xvf VOCtest_06-Nov-2007.tar
 tar xvf VOCdevkit_08-Jun-2007.tar
-rm -rf *.tar
+rm -rf *.tar; cd ../
 ```
 
 ### 2\. Prepare ImageNet pre-trained model
@@ -93,12 +92,10 @@ cd docker
 bash install_caffe_docker.sh
 bash create_image.sh
 bash run_caffe_docker.sh
+cd ..
 ```
 
 It creates `data/VGG16.model` that is converted from pre-trained model in Caffe format. The pre-trained model is the one distributed in [the official Model Zoo of Caffe wiki](https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md).
-
-#### Build Caffe
-
 
 ## Workflow
 
