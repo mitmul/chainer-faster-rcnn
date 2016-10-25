@@ -49,6 +49,7 @@ class FasterRCNN(chainer.Chain):
             im_info = im_info.data
             gt_boxes = gt_boxes.data
             if isinstance(gt_boxes, chainer.cuda.cupy.ndarray):
+                im_info = chainer.cuda.cupy.asnumpy(im_info)
                 gt_boxes = chainer.cuda.cupy.asnumpy(gt_boxes)
             rpn_cls_loss, rpn_loss_bbox, rois = self.RPN(
                 h, im_info, self.gpu, gt_boxes)

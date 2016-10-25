@@ -36,6 +36,7 @@ There's a known problem in cpu_nms.pyx. But a workaround has been posted [here](
 ```
 cd lib
 python setup.py build_ext -i
+cd ..
 ```
 
 ## Inference
@@ -49,7 +50,6 @@ cd ..
 ```
 
 **NOTE:** The model definition in `faster_rcnn.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
-
 
 ### 2\. Use forward.py
 
@@ -79,7 +79,7 @@ The region proposal layer (RPN) is consisted of `AnchorTargetLayer` and `Proposa
 ### 1\. Download dataset
 
 ```
-mkdir data; cd data
+if [ ! -d data ]; then mkdir data; fi; cd data
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
@@ -100,6 +100,12 @@ cd ..
 ```
 
 It creates `data/VGG16.model` that is converted from pre-trained model in Caffe format. The pre-trained model is the one distributed in [the official Model Zoo of Caffe wiki](https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md).
+
+### 3\. Start training
+
+```
+python train.py
+```
 
 ## Workflow
 
