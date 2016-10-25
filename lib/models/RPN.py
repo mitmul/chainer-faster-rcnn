@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from chainer import Variable
+from chainer.cuda import to_gpu
 from lib.faster_rcnn.anchor_target_layer import AnchorTargetLayer
 from lib.faster_rcnn.proposal_layer import ProposalLayer
 from lib.faster_rcnn.smooth_l1_loss import smooth_l1_loss
@@ -46,10 +48,18 @@ class RPN(chainer.Chain):
 
             # make it into Variable
             if gpu >= 0:
-                with chainer.cuda.Device(gpu):
-                    rpn_labels = chainer.cupy.asarray(rpn_labels)
-            # volatile = 'off' if gt_boxes is not None else 'on'
-            # rpn_labels = chainer.Variable(rpn_labels, volatile=volatile)
+                tg = lambda x: to_gpu(x, device=gpu)
+                rpn_labels = tg(rpn_labels)
+                rpn_bbox_targets = tg(rpn_bbox_targets)
+                rpn_bbox_inside_weights = tg(rpn_bbox_inside_weights)
+                rpn_bbox_outside_weights = tg(rpn_bbox_outside_weights)
+            volatile = 'off' if gt_boxes is not None else 'on'
+            rpn_labels = Variable(rpn_labels, volatile=volatile)
+            rpn_bbox_targets = Variable(rpn_bbox_targets, volatile=volatile)
+            # rpn_bbox_inside_weights = Variable(
+            #     rpn_bbox_inside_weights, volatile=volatile)
+            # rpn_bbox_outside_weights = Variable(
+            #     rpn_bbox_outside_weights, volatile=volatile)
 
             rpn_cls_loss = F.softmax_cross_entropy(
                 rpn_cls_score_reshape, rpn_labels)

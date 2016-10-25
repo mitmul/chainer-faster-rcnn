@@ -43,14 +43,6 @@ class VGG16(chainer.Chain):
             ('_relu5_2', F.ReLU()),
             ('conv5_3', L.Convolution2D(512, 512, 3, 1, 1)),
             ('_relu5_3', F.ReLU()),
-            ('_pool5', F.MaxPooling2D(2, 2)),
-            ('fc6', L.Linear(4096, 4096)),
-            ('_relu6', F.ReLU()),
-            ('_drop6', F.Dropout(0.5)),
-            ('fc7', L.Linear(4096, 4096)),
-            ('_relu7', F.ReLU()),
-            ('_drop7', F.Dropout(0.5)),
-            ('fc8', L.Linear(4096, 1000))
         ]
         for name, link in self.trunk:
             if not name.startswith('_'):
@@ -58,6 +50,10 @@ class VGG16(chainer.Chain):
 
     def __call__(self, x):
         for name, f in self.trunk:
-            x = (getattr(self, name) if 'conv' in name else f)(x)
-        self.feature = x
+            if not name.startswith('_'):
+                x = getattr(self, name)(x)
+            else:
+                x = f(x)
+            if name == '_relu5_3':
+                self.feature = x
         return x

@@ -13,6 +13,7 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # --------------------------------------------------------
 
+from chainer import Variable
 from lib.bbox import bbox_overlaps
 from lib.faster_rcnn.bbox_transform import bbox_transform
 from lib.faster_rcnn.generate_anchors import generate_anchors
@@ -240,9 +241,9 @@ class AnchorTargetLayer(object):
         return labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
     def _unmap(self, data, count, inds, fill=0):
-        """Unmap a subset of item (data) back to the original set of items (of
-        size count)
-
+        """
+            Unmap a subset of item (data) back to the original set of items (of
+            size count)
         """
 
         if len(data.shape) == 1:
@@ -256,8 +257,8 @@ class AnchorTargetLayer(object):
         return ret
 
     def _compute_targets(self, ex_rois, gt_rois):
-        """Compute bounding-box regression targets for an image.
-
+        """
+            Compute bounding-box regression targets for an image.
         """
 
         assert ex_rois.shape[0] == gt_rois.shape[0]

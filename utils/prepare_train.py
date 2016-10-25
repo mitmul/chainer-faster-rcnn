@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 from chainer import optimizers
-from chainer import serializers
 
 import argparse
 import chainer
@@ -25,42 +20,70 @@ def create_args():
 
     # Training settings
     parser.add_argument(
-        '--model_file', type=str,
-        help='The model filename with .py extension')
+        '--model_file', type=str, default='lib/models/faster_rcnn.py',
+        help='The model filename (.py)')
     parser.add_argument(
-        '--model_name', type=str,
+        '--model_name', type=str, default='FasterRCNN',
         help='The model class name')
     parser.add_argument(
-        '--resume_model', type=str,
-        help='Saved parameter file to be used for resuming')
+        '--trunk_file', type=str, default='lib/models/vgg16.py',
+        help='The filepath to the trunk architecture (.py)')
     parser.add_argument(
-        '--resume_opt', type=str,
-        help='Saved optimization file to be used for resuming')
+        '--trunk_name', type=str, default='VGG16',
+        help='The name of trunk architecture class')
     parser.add_argument(
-        '--trunk', type=str,
-        help='The pre-trained trunk param filename with .npz extension')
+        '--trunk_param', type=str, default='data/VGG16.model',
+        help='A saved parameter files (.npz)')
+
+    # Model parameters
+    parser.add_argument('--rpn_in_ch', type=int, default=512)
+    parser.add_argument('--rpn_out_ch', type=int, default=512)
+    parser.add_argument('--n_anchors', type=int, default=9)
+    parser.add_argument('--feat_stride', type=int, default=16)
+    parser.add_argument('--anchor_scales', type=str, default='8,16,32')
+    parser.add_argument('--num_classes', type=int, default=21)
+    parser.add_argument('--spatial_scale', type=float, default=0.0625)
+    parser.add_argument('--rpn_sigma', type=float, default=1.0)
+    parser.add_argument('--sigma', type=float, default=3.0)
+
     parser.add_argument(
         '--epoch', type=int, default=100,
         help='When the trianing will finish')
     parser.add_argument(
-        '--gpus', type=str, default='0,1,2,3',
+        '--gpus', type=str, default='0',
         help='GPU Ids to be used')
     parser.add_argument(
-        '--batchsize', type=int, default=128,
+        '--batchsize', type=int, default=1,
         help='minibatch size')
     parser.add_argument(
-        '--snapshot_iter', type=int, default=None,
+        '--snapshot_iter', type=int, default=1000,
         help='The current learnt parameters in the model is saved every'
              'this iteration')
     parser.add_argument(
         '--valid_freq', type=int, default=1,
         help='Perform test every this iteration (0 means no test)')
     parser.add_argument(
-        '--valid_batchsize', type=int, default=256,
+        '--valid_batchsize', type=int, default=1,
         help='The mini-batch size during validation loop')
     parser.add_argument(
         '--show_log_iter', type=int, default=10,
         help='Show loss value per this iterations')
+
+    # Dataset
+    parser.add_argument('--train_img_dir', type=str,
+                        default='data/VOCdevkit/VOC2007/JPEGImages')
+    parser.add_argument('--train_anno_dir', type=str,
+                        default='data/VOCdevkit/VOC2007/Annotations')
+    parser.add_argument('--train_list_dir', type=str,
+                        default='data/VOCdevkit/VOC2007/ImageSets/Main')
+    parser.add_argument('--train_list_suffix', type=str, default='train')
+    parser.add_argument('--valid_img_dir', type=str,
+                        default='data/VOCdevkit/VOC2007/JPEGImages')
+    parser.add_argument('--valid_anno_dir', type=str,
+                        default='data/VOCdevkit/VOC2007/Annotations')
+    parser.add_argument('--valid_list_dir', type=str,
+                        default='data/VOCdevkit/VOC2007/ImageSets/Main')
+    parser.add_argument('--valid_list_suffix', type=str, default='valid')
 
     # Settings
     parser.add_argument(
@@ -76,22 +99,6 @@ def create_args():
     parser.add_argument(
         '--n_classes', type=int, default=20,
         help='The number of classes that the model predicts')
-    parser.add_argument(
-        '--mean', type=str, default=None,
-        help='Mean npy over the training data')
-    parser.add_argument(
-        '--std', type=str, default=None,
-        help='Stddev npy over the training data')
-
-    # Dataset paths
-    parser.add_argument(
-        '--train_img_dir', type=str, help='Full path to images for trianing')
-    parser.add_argument(
-        '--valid_img_dir', type=str, help='Full path to images for validation')
-    parser.add_argument(
-        '--train_lbl_dir', type=str, help='Full path to labels for trianing')
-    parser.add_argument(
-        '--valid_lbl_dir', type=str, help='Full path to labels for validation')
 
     # Optimization settings
     parser.add_argument(
@@ -147,17 +154,42 @@ def create_logger(args, result_dir):
     logging.info(args)
 
 
-def get_model(model_file, model_name, train=False, trunk_path=None,
-              result_dir=None):
+def get_model(
+        model_file, model_name, gpu, rpn_in_ch, rpn_out_ch, n_anchors,
+        feat_stride, anchor_scales, num_classes, spatial_scale, rpn_sigma,
+        sigma, trunk_file, trunk_name, trunk_param, train=False,
+        result_dir=None):
     model = imp.load_source(model_name, model_file)
     model = getattr(model, model_name)
+    if trunk_name is not None and trunk_file is not None:
+        trunk = imp.load_source(trunk_name, trunk_file)
+        trunk = getattr(trunk, trunk_name)
 
     # Initialize
-    model = model(n_classes)
-    if trunk_path is not None:
-        serializers.load_npz(trunk_path, model)
-    if train:
-        model = L.Classifier(model)
+    model = model(
+        gpu=gpu, trunk=trunk, rpn_in_ch=rpn_in_ch, rpn_out_ch=rpn_out_ch,
+        n_anchors=n_anchors, feat_stride=feat_stride,
+        anchor_scales=anchor_scales, num_classes=num_classes,
+        spatial_scale=spatial_scale, rpn_sigma=rpn_sigma, sigma=sigma)
+
+    # Load pre-trained trunk params
+    if trunk_file is not None and trunk_name is not None \
+            and trunk_param is not None:
+        logging.info('Loading pre-trained trunk parameters...')
+        trunk = np.load(trunk_param)
+        for name, param in model.namedparams():
+            if 'trunk' not in name:
+                continue
+            for trunk_name in trunk.keys():
+                if trunk_name in name:
+                    target = model.trunk
+                    names = [n for n in trunk_name.split('/') if len(n) > 0]
+                    for n in names[:-1]:
+                        target = target.__dict__[n]
+                    logging.info('{}: {} <- {}'.format(
+                        trunk_name, target.__dict__[names[-1]].data.shape,
+                        trunk[trunk_name].shape))
+                    target.__dict__[names[-1]].data = trunk[trunk_name]
 
     # Copy files
     if result_dir is not None:
@@ -165,6 +197,10 @@ def get_model(model_file, model_name, train=False, trunk_path=None,
         dst = '{}/{}'.format(result_dir, base_fn)
         if not os.path.exists(dst):
             shutil.copy(model_file, dst)
+        base_fn = os.path.basename(trunk_file)
+        dst = '{}/{}'.format(result_dir, base_fn)
+        if not os.path.exists(dst):
+            shutil.copy(trunk_file, dst)
 
     return model
 

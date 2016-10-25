@@ -14,6 +14,8 @@ if __name__ == '__main__':
 
     model = VGG16()
     for name, param in net.params.iteritems():
+        if 'conv' not in name:
+            continue
         layer = getattr(model, name)
 
         print name, param[0].data.shape, param[1].data.shape,

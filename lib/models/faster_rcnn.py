@@ -3,6 +3,8 @@
 
 # Copyright (c) 2016 Shunta Saito
 
+from chainer import reporter
+from chainer import Variable
 from chainer.cuda import to_gpu
 from lib.faster_rcnn.bbox_transform import bbox_transform_inv
 from lib.faster_rcnn.bbox_transform import clip_boxes
@@ -21,9 +23,10 @@ class FasterRCNN(chainer.Chain):
 
     def __init__(
             self, gpu=-1, trunk=VGG16, rpn_in_ch=512, rpn_out_ch=512,
-            n_anchors=9, feat_stride=16, anchor_scales=[8, 16, 32],
+            n_anchors=9, feat_stride=16, anchor_scales='8,16,32',
             num_classes=21, spatial_scale=0.0625, rpn_sigma=1.0, sigma=3.0):
         super(FasterRCNN, self).__init__()
+        anchor_scales = [int(s) for s in anchor_scales.strip().split(',')]
         self.add_link('trunk', trunk())
         self.add_link('RPN', RPN(rpn_in_ch, rpn_out_ch, n_anchors, feat_stride,
                                  anchor_scales, num_classes, rpn_sigma))
@@ -40,7 +43,13 @@ class FasterRCNN(chainer.Chain):
 
     def __call__(self, x, im_info, gt_boxes=None):
         h = self.trunk(x)
+        im_info = im_info.data
+        if isinstance(im_info, chainer.cuda.cupy.ndarray):
+            im_info = chainer.cuda.cupy.asnumpy(im_info)
         if self.train:
+            gt_boxes = gt_boxes.data
+            if isinstance(gt_boxes, chainer.cuda.cupy.ndarray):
+                gt_boxes = chainer.cuda.cupy.asnumpy(gt_boxes)
             rpn_cls_loss, rpn_loss_bbox, rois = self.RPN(
                 h, im_info, self.gpu, gt_boxes)
         else:
@@ -75,10 +84,23 @@ class FasterRCNN(chainer.Chain):
         box_deltas = bbox_pred.data
 
         if self.train:
+            if self.gpu >= 0:
+                tg = lambda x: to_gpu(x, device=self.gpu)
+                labels = tg(labels)
+                bbox_targets = tg(bbox_targets)
+                bbox_inside_weights = tg(bbox_inside_weights)
+                bbox_outside_weights = tg(bbox_outside_weights)
             loss_cls = F.softmax_cross_entropy(cls_score, labels)
+            labels = Variable(labels, volatile='off')
+            bbox_targets = Variable(bbox_targets, volatile='off')
             loss_bbox = smooth_l1_loss(
                 bbox_pred, bbox_targets, bbox_inside_weights,
                 bbox_outside_weights, self.sigma)
+
+            reporter.report({'rpn_loss_cls': rpn_cls_loss,
+                             'rpn_loss_bbox': rpn_loss_bbox,
+                             'loss_bbox': loss_bbox,
+                             'loss_cls': loss_cls}, self)
 
             return rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls
         else:
