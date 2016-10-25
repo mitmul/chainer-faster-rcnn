@@ -29,6 +29,15 @@ conda install opencv
 
 There's a known problem in cpu_nms.pyx. But a workaround has been posted [here](https://github.com/mitmul/chainer-faster-rcnn/issues/1) (and see also [the issue posted to the original py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn/issues/36)).
 
+## Setup
+
+### 1\. Build extensions
+
+```
+cd lib
+python setup.py build_ext -i
+```
+
 ## Inference
 
 ### 1\. Download pre-trained model
@@ -41,14 +50,8 @@ cd ..
 
 **NOTE:** The model definition in `faster_rcnn.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
 
-### 2\. Build extensions
 
-```
-cd lib
-python setup.py build_ext -i
-```
-
-### 3\. Use forward.py
+### 2\. Use forward.py
 
 ```
 wget http://vision.cs.utexas.edu/voc/VOC2007_test/JPEGImages/004545.jpg
@@ -60,11 +63,11 @@ python forward.py --img_fn 004545.jpg --gpu 0
 
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/result.png)
 
-### Layers
+#### Layers
 
 Summarization of Faster R-CNN layers used during inference
 
-#### RPN
+##### RPN
 
 The region proposal layer (RPN) is consisted of `AnchorTargetLayer` and `ProposalLayer`. RPN takes feature maps from trunk network like VGG-16, and performs 3x3 convolution to it. Then, it applies two independent 1x1 convolutions to the output of the first 3x3 convolution. Resulting outputs are `rpn_cls_score` and `rpn_bbox_pred`.
 
