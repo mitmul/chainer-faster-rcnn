@@ -109,4 +109,6 @@ python train.py
 
 ## Workflow
 
+**Note that it is a visualization of the workflow DURING INFERENCE**
+
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/Faster%20R-CNN.png)
