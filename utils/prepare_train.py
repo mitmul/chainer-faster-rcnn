@@ -83,7 +83,7 @@ def create_args():
                         default='data/VOCdevkit/VOC2007/Annotations')
     parser.add_argument('--valid_list_dir', type=str,
                         default='data/VOCdevkit/VOC2007/ImageSets/Main')
-    parser.add_argument('--valid_list_suffix', type=str, default='valid')
+    parser.add_argument('--valid_list_suffix', type=str, default='val')
 
     # Settings
     parser.add_argument(
