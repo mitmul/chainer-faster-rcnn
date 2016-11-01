@@ -1,4 +1,4 @@
-FROM caffe:gpu
+FROM caffe:cpu
 
 RUN apt-get update
 RUN apt-get update -y && \

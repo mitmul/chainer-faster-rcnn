@@ -1,6 +1,8 @@
 .DS_Store
 .remote-sync.json
 .sync-config.cson
+data
+docker/caffe
 
 *__pycache__*
 *.pyc
