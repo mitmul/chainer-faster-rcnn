@@ -1,6 +1,6 @@
 #!/bin/bash
 
-nvidia-docker run \
+sudo nvidia-docker run \
 -v $(readlink -f ${PWD}/../data):/workspace/data \
 -v ${PWD}/../:/workspace \
 --rm mitmul/chainer-faster-rcnn:caffe \
