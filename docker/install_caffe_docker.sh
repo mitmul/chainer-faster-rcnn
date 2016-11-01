@@ -17,6 +17,7 @@ fi
 if [ ! -d caffe ]; then
     git clone https://github.com/BVLC/caffe.git
     cd caffe/docker; sudo make cpu_standalone
+    cd ../..
 fi
 
 if [ ! -f ../data/VGG_ILSVRC_16_layers_deploy.prototxt ]; then
