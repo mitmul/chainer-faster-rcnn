@@ -104,7 +104,7 @@ sudo apt-get install -y docker-engine
 sudo service docker start
 ```
 
-and then logout & login.
+and then build caffe docker image and run the converter to make a chainer model from the pre-trained caffe model.
 
 ```
 cd docker
