@@ -53,9 +53,8 @@ class RPN(chainer.Chain):
                 rpn_bbox_targets = tg(rpn_bbox_targets)
                 rpn_bbox_inside_weights = tg(rpn_bbox_inside_weights)
                 rpn_bbox_outside_weights = tg(rpn_bbox_outside_weights)
-            volatile = 'off' if gt_boxes is not None else 'on'
-            rpn_labels = Variable(rpn_labels, volatile=volatile)
-            rpn_bbox_targets = Variable(rpn_bbox_targets, volatile=volatile)
+            rpn_labels = Variable(rpn_labels, volatile='auto')
+            rpn_bbox_targets = Variable(rpn_bbox_targets, volatile='auto')
             # rpn_bbox_inside_weights = Variable(
             #     rpn_bbox_inside_weights, volatile=volatile)
             # rpn_bbox_outside_weights = Variable(
