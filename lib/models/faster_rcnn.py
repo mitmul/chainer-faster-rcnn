@@ -43,7 +43,8 @@ class FasterRCNN(chainer.Chain):
 
     def __call__(self, x, im_info, gt_boxes=None):
         h = self.trunk(x)
-        if isinstance(im_info, chainer.cuda.cupy.ndarray):
+        if chainer.cuda.available \
+                and isinstance(im_info, chainer.cuda.cupy.ndarray):
             im_info = chainer.cuda.cupy.asnumpy(im_info)
         if self.train:
             im_info = im_info.data
@@ -92,8 +93,8 @@ class FasterRCNN(chainer.Chain):
                 bbox_inside_weights = tg(bbox_inside_weights)
                 bbox_outside_weights = tg(bbox_outside_weights)
             loss_cls = F.softmax_cross_entropy(cls_score, labels)
-            labels = Variable(labels, volatile='off')
-            bbox_targets = Variable(bbox_targets, volatile='off')
+            labels = Variable(labels, volatile='auto')
+            bbox_targets = Variable(bbox_targets, volatile='auto')
             loss_bbox = smooth_l1_loss(
                 bbox_pred, bbox_targets, bbox_inside_weights,
                 bbox_outside_weights, self.sigma)
