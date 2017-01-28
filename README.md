@@ -91,30 +91,32 @@ rm -rf *.tar; cd ../
 
 ### 2\. Prepare ImageNet pre-trained model
 
-First, if you don't have docker and nvidia-docker, install them:
+### Don't do this. Please see [the issue #15](https://github.com/mitmul/chainer-faster-rcnn/issues/15#issuecomment-275834389) and follow the instruction instead: [Can you make VGG16.model available? #15](https://github.com/mitmul/chainer-faster-rcnn/issues/15#issuecomment-275834389)
 
-```
-sudo apt-get update
-sudo apt-get install -y apt-transport-https ca-certificates
-sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" | sudo tee /etc/apt/sources.list.d/docker.list
-sudo apt-get install -y linux-image-extra-$(uname -r) linux-image-extra-virtual
-sudo apt-get update
-sudo apt-get install -y docker-engine
-sudo service docker start
-```
-
-and then build caffe docker image and run the converter to make a chainer model from the pre-trained caffe model.
-
-```
-cd docker
-bash install_caffe_docker.sh
-bash create_image.sh
-bash run_caffe_docker.sh
-cd ..
-```
-
-It creates `data/VGG16.model` that is converted from pre-trained model in Caffe format. The pre-trained model is the one distributed in [the official Model Zoo of Caffe wiki](https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md).
+> First, if you don't have docker and nvidia-docker, install them:
+	
+> ```
+> sudo apt-get update
+> sudo apt-get install -y apt-transport-https ca-certificates
+> sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+> echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" | sudo tee /etc/apt/sources.list.d/docker.list
+> sudo apt-get install -y linux-image-extra-$(uname -r) linux-image-extra-virtual
+> sudo apt-get update
+> sudo apt-get install -y docker-engine
+> sudo service docker start
+> ```
+>
+> and then build caffe docker image and run the converter to make a chainer model from the pre-trained caffe model.
+> 
+> ```
+> cd docker
+> bash install_caffe_docker.sh
+> bash create_image.sh
+> bash run_caffe_docker.sh
+> cd ..
+> ```
+> 	
+> It creates `data/VGG16.model` that is converted from pre-trained model in Caffe format. The pre-trained model is the one distributed in [the official Model Zoo of Caffe wiki](https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md).
 
 ### 3\. Start training
 
@@ -127,3 +129,5 @@ python train.py
 **Note that it is a visualization of the workflow DURING INFERENCE**
 
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/Faster%20R-CNN.png)
+
+
