@@ -15,9 +15,12 @@ if ! [ -x "$(command -v nvidia-docker)" ]; then
 fi
 
 if [ ! -d caffe ]; then
-    git clone https://github.com/BVLC/caffe.git
-    cd caffe/docker; sudo make cpu_standalone
-    cd ../..
+    wget https://github.com/BVLC/caffe/archive/rc4.tar.gz
+    tar zxvf rc4.tar.gz
+    rm -rf rc4.tar.gz
+    mv caffe-rc4 caffe
+    cd caffe/docker/cpu; sudo nvidia-docker build -t caffe:cpu .
+    cd ../../../
 fi
 
 if [ ! -f ../data/VGG_ILSVRC_16_layers_deploy.prototxt ]; then
