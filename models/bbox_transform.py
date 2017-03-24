@@ -13,11 +13,10 @@
 # --------------------------------------------------------
 
 from chainer import cuda
-from chainer.cuda import get_array_module
 
 
 def bbox_transform(ex_rois, gt_rois):
-    xp = get_array_module(ex_rois)
+    xp = cuda.get_array_module(ex_rois)
 
     ex_widths = ex_rois[:, 2] - ex_rois[:, 0] + 1.0
     ex_heights = ex_rois[:, 3] - ex_rois[:, 1] + 1.0
@@ -48,7 +47,7 @@ def bbox_transform_inv(boxes, deltas, gpu=-1):
 
 
 def _bbox_transform_inv(boxes, deltas):
-    xp = get_array_module(boxes)
+    xp = cuda.get_array_module(boxes)
 
     if boxes.shape[0] == 0:
         return xp.zeros((0, deltas.shape[1]), dtype=deltas.dtype)
@@ -91,7 +90,7 @@ def clip_boxes(boxes, im_shape, gpu=-1):
 
 def _clip_boxes(boxes, im_shape):
     """Clip boxes to image boundaries."""
-    xp = get_array_module(boxes)
+    xp = cuda.get_array_module(boxes)
 
     # x1 >= 0
     boxes[:, 0::4] = xp.maximum(xp.minimum(boxes[:, 0::4], im_shape[1] - 1), 0)

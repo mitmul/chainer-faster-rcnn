@@ -26,14 +26,8 @@ def create_args():
         '--model_name', type=str, default='FasterRCNN',
         help='The model class name')
     parser.add_argument(
-        '--trunk_file', type=str, default='lib/models/vgg16.py',
-        help='The filepath to the trunk architecture (.py)')
-    parser.add_argument(
-        '--trunk_name', type=str, default='VGG16',
-        help='The name of trunk architecture class')
-    parser.add_argument(
-        '--trunk_param', type=str, default='data/VGG16.model',
-        help='A saved parameter files (.npz)')
+        '--trunk_model', type=str, default='VGG16',
+        choices=['VGG16', 'ResNet50', 'ResNet101', 'ResNet152', 'None'])
 
     # Model parameters
     parser.add_argument('--rpn_in_ch', type=int, default=512)
@@ -68,22 +62,6 @@ def create_args():
     parser.add_argument(
         '--show_log_iter', type=int, default=10,
         help='Show loss value per this iterations')
-
-    # Dataset
-    parser.add_argument('--train_img_dir', type=str,
-                        default='data/VOCdevkit/VOC2007/JPEGImages')
-    parser.add_argument('--train_anno_dir', type=str,
-                        default='data/VOCdevkit/VOC2007/Annotations')
-    parser.add_argument('--train_list_dir', type=str,
-                        default='data/VOCdevkit/VOC2007/ImageSets/Main')
-    parser.add_argument('--train_list_suffix', type=str, default='train')
-    parser.add_argument('--valid_img_dir', type=str,
-                        default='data/VOCdevkit/VOC2007/JPEGImages')
-    parser.add_argument('--valid_anno_dir', type=str,
-                        default='data/VOCdevkit/VOC2007/Annotations')
-    parser.add_argument('--valid_list_dir', type=str,
-                        default='data/VOCdevkit/VOC2007/ImageSets/Main')
-    parser.add_argument('--valid_list_suffix', type=str, default='val')
 
     # Settings
     parser.add_argument(
@@ -122,6 +100,8 @@ def create_args():
     args = parser.parse_args()
     xp = chainer.cuda.cupy if chainer.cuda.available else np
     xp.random.seed(args.seed)
+    args.anchor_scales = [int(v) for v in args.anchor_scales.split(',') if v]
+    args.trunk_model = None if args.trunk_model == 'None' else '{}Layers'.format(args.trunk_model)
     return args
 
 
@@ -135,35 +115,15 @@ def create_result_dir(model_name):
     return result_dir
 
 
-def create_logger(args, result_dir):
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
-    msg_format = '%(asctime)s [%(levelname)s] %(message)s'
-    formatter = logging.Formatter(msg_format)
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
-    fileHandler = logging.FileHandler("{}/stdout.log".format(result_dir))
-    fileHandler.setFormatter(formatter)
-    root.addHandler(fileHandler)
-    logging.info(sys.version_info)
-    logging.info('chainer version: {}'.format(chainer.__version__))
-    logging.info('cuda: {}, cudnn: {}'.format(
-        chainer.cuda.available, chainer.cuda.cudnn_enabled))
-    logging.info(args)
-
-
 def get_model(
         model_file, model_name, gpu, rpn_in_ch, rpn_out_ch, n_anchors,
         feat_stride, anchor_scales, num_classes, spatial_scale, rpn_sigma,
-        sigma, trunk_file, trunk_name, trunk_param, train=False,
+        sigma, trunk_model, train=False,
         result_dir=None):
     model = imp.load_source(model_name, model_file)
     model = getattr(model, model_name)
-    if trunk_name is not None and trunk_file is not None:
-        trunk = imp.load_source(trunk_name, trunk_file)
-        trunk = getattr(trunk, trunk_name)
+    if trunk_model is not None:
+        trunk = getattr(L, trunk_model)
 
     # Initialize
     model = model(
@@ -172,35 +132,12 @@ def get_model(
         anchor_scales=anchor_scales, num_classes=num_classes,
         spatial_scale=spatial_scale, rpn_sigma=rpn_sigma, sigma=sigma)
 
-    # Load pre-trained trunk params
-    if trunk_file is not None and trunk_name is not None \
-            and trunk_param is not None:
-        logging.info('Loading pre-trained trunk parameters...')
-        trunk = np.load(trunk_param)
-        for name, param in model.namedparams():
-            if 'trunk' not in name:
-                continue
-            for trunk_name in trunk.keys():
-                if trunk_name in name:
-                    target = model.trunk
-                    names = [n for n in trunk_name.split('/') if len(n) > 0]
-                    for n in names[:-1]:
-                        target = target.__dict__[n]
-                    logging.info('{}: {} <- {}'.format(
-                        trunk_name, target.__dict__[names[-1]].data.shape,
-                        trunk[trunk_name].shape))
-                    target.__dict__[names[-1]].data = trunk[trunk_name]
-
     # Copy files
     if result_dir is not None:
         base_fn = os.path.basename(model_file)
         dst = '{}/{}'.format(result_dir, base_fn)
         if not os.path.exists(dst):
             shutil.copy(model_file, dst)
-        base_fn = os.path.basename(trunk_file)
-        dst = '{}/{}'.format(result_dir, base_fn)
-        if not os.path.exists(dst):
-            shutil.copy(trunk_file, dst)
 
     return model
 

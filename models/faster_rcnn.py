@@ -1,33 +1,41 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2016 Shunta Saito
-
-from chainer import reporter
-from chainer import Variable
-from chainer.cuda import to_gpu
-from lib.faster_rcnn.bbox_transform import bbox_transform_inv
-from lib.faster_rcnn.bbox_transform import clip_boxes
-from lib.faster_rcnn.proposal_target_layer import ProposalTargetLayer
-from lib.faster_rcnn.roi_pooling_2d import roi_pooling_2d
-from lib.faster_rcnn.smooth_l1_loss import smooth_l1_loss
-from lib.models.rpn import RPN
-from lib.models.vgg16 import VGG16
 
 import chainer
 import chainer.functions as F
 import chainer.links as L
+from chainer import Variable
+from chainer import reporter
+from chainer.cuda import to_gpu
+from chainer.links import VGG16Layers
+from lib.faster_rcnn.bbox_transform import bbox_transform_inv
+from lib.faster_rcnn.bbox_transform import clip_boxes
+from lib.faster_rcnn.proposal_target_layer import ProposalTargetLayer
+from lib.faster_rcnn.smooth_l1_loss import smooth_l1_loss
+from lib.models.rpn import RPN
+from lib.models.vgg16 import VGG16
 
 
 class FasterRCNN(chainer.Chain):
 
     def __init__(
             self, gpu=-1, trunk=VGG16, rpn_in_ch=512, rpn_out_ch=512,
-            n_anchors=9, feat_stride=16, anchor_scales='8,16,32',
+            n_anchors=9, feat_stride=16, anchor_scales=[8, 16, 32],
             num_classes=21, spatial_scale=0.0625, rpn_sigma=1.0, sigma=3.0):
         super(FasterRCNN, self).__init__()
-        anchor_scales = [int(s) for s in anchor_scales.strip().split(',')]
-        self.add_link('trunk', trunk())
+        trunk = trunk()
+        if isinstance(trunk, VGG16Layers):
+            trunk._children.remove('fc6')
+            trunk._children.remove('fc7')
+            trunk._children.remove('fc8')
+            del trunk.fc6
+            del trunk.fc7
+            del trunk.fc8
+            del trunk.functions['fc6']
+            del trunk.functions['fc7']
+            del trunk.functions['fc8']
+            del trunk.functions['prob']
+            self.trunk_key = 'pool5'
+        self.add_link('trunk', trunk)
         self.add_link('RPN', RPN(rpn_in_ch, rpn_out_ch, n_anchors, feat_stride,
                                  anchor_scales, num_classes, rpn_sigma))
         self.add_link('fc6', L.Linear(25088, 4096))
@@ -42,16 +50,15 @@ class FasterRCNN(chainer.Chain):
         self.proposal_target_layer = ProposalTargetLayer(num_classes)
 
     def __call__(self, x, im_info, gt_boxes=None):
-        h = self.trunk(x)
-        if chainer.cuda.available \
-                and isinstance(im_info, chainer.cuda.cupy.ndarray):
-            im_info = chainer.cuda.cupy.asnumpy(im_info)
-        if self.train:
-            im_info = im_info.data
-            gt_boxes = gt_boxes.data
-            if isinstance(gt_boxes, chainer.cuda.cupy.ndarray):
-                im_info = chainer.cuda.cupy.asnumpy(im_info)
-                gt_boxes = chainer.cuda.cupy.asnumpy(gt_boxes)
+        if hasattr(self, 'trunk_key'):
+            h = self.trunk(x, [self.trunk_key])[self.trunk_key]
+        else:
+            h = self.trunk(x)
+        if isinstance(im_info, chainer.Variable):
+            im_info = chainer.cuda.to_cpu(im_info.data)
+        if self.train and gt_boxes is not None:
+            if isinstance(gt_boxes, chainer.Variable):
+                gt_boxes = chainer.cuda.to_cpu(gt_boxes.data)
             rpn_cls_loss, rpn_loss_bbox, rois = self.RPN(
                 h, im_info, self.gpu, gt_boxes)
         else:
@@ -72,7 +79,7 @@ class FasterRCNN(chainer.Chain):
             boxes = rois[:, 1:5] / im_info[0][2]
 
         # RCNN
-        pool5 = roi_pooling_2d(
+        pool5 = F.roi_pooling_2d(
             self.trunk.feature, rois, 7, 7, self.spatial_scale)
         fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.train)
         fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.train)
@@ -93,8 +100,6 @@ class FasterRCNN(chainer.Chain):
                 bbox_inside_weights = tg(bbox_inside_weights)
                 bbox_outside_weights = tg(bbox_outside_weights)
             loss_cls = F.softmax_cross_entropy(cls_score, labels)
-            labels = Variable(labels, volatile='auto')
-            bbox_targets = Variable(bbox_targets, volatile='auto')
             loss_bbox = smooth_l1_loss(
                 bbox_pred, bbox_targets, bbox_inside_weights,
                 bbox_outside_weights, self.sigma)

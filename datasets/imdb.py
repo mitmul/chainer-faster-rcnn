@@ -134,19 +134,21 @@ class imdb(object):
                 'thresholds': vector of IoU overlap thresholds
                 'gt_overlaps': vector of all ground-truth overlaps
         """
+
         # Record max overlap value for each gt box
         # Return vector of overlap values
         areas = {'all': 0, 'small': 1, 'medium': 2, 'large': 3,
                  '96-128': 4, '128-256': 5, '256-512': 6, '512-inf': 7}
-        area_ranges = [[0**2, 1e5**2],    # all
-                       [0**2, 32**2],     # small
-                       [32**2, 96**2],    # medium
-                       [96**2, 1e5**2],   # large
-                       [96**2, 128**2],   # 96-128
-                       [128**2, 256**2],  # 128-256
-                       [256**2, 512**2],  # 256-512
-                       [512**2, 1e5**2],  # 512-inf
-                       ]
+        area_ranges = [
+            [0 ** 2, 1e5 ** 2],    # all
+            [0 ** 2, 32 ** 2],     # small
+            [32 ** 2, 96 ** 2],    # medium
+            [96 ** 2, 1e5 ** 2],   # large
+            [96 ** 2, 128 ** 2],   # 96-128
+            [128 ** 2, 256 ** 2],  # 128-256
+            [256 ** 2, 512 ** 2],  # 256-512
+            [512 ** 2, 1e5 ** 2],  # 512-inf
+        ]
         assert areas.has_key(area), 'unknown area range: {}'.format(area)
         area_range = area_ranges[areas[area]]
         gt_overlaps = np.zeros(0)

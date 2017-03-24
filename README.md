@@ -1,6 +1,6 @@
 # Faster R-CNN
 
-This is an experimental implementation of Faster R-CNN using Chainer based on Ross Girshick's [py-faster-rcnn codes](https://github.com/rbgirshick/py-faster-rcnn).
+This is an experimental implementation of Faster R-CNN in Chainer based on Ross Girshick's work: [py-faster-rcnn codes](https://github.com/rbgirshick/py-faster-rcnn).
 
 ## Requirement
 
@@ -8,9 +8,9 @@ Using anaconda is strongly recommended.
 
 - Python 2.7.6+, 3.4.3+, 3.5.1+
 
-  - [Chainer](https://github.com/pfnet/chainer) 1.9.1+
+  - [Chainer](https://github.com/pfnet/chainer) 1.22.0+
   - NumPy 1.9, 1.10, 1.11
-  - Cython 0.23+
+  - Cython 0.25+
   - OpenCV 2.9+, 3.1+
 
 ### Installation of dependencies
@@ -19,6 +19,7 @@ Using anaconda is strongly recommended.
 pip install numpy
 pip install cython
 pip install chainer
+pip install chainercv
 # for python3
 conda install -c https://conda.binstar.org/menpo opencv3
 # for python2
@@ -44,9 +45,8 @@ cd ..
 ### 1\. Download pre-trained model
 
 ```
-if [ ! -d data ]; then mkdir data; fi; cd data
-wget https://dl.dropboxusercontent.com/u/2498135/faster-rcnn/VGG16_faster_rcnn_final.model
-cd ..
+if [ ! -d data ]; then mkdir data; fi
+curl https://dl.dropboxusercontent.com/u/2498135/faster-rcnn/VGG16_faster_rcnn_final.model -o data/VGG16_faster_rcnn_final.model
 ```
 
 **NOTE:** The model definition in `faster_rcnn.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
@@ -54,8 +54,7 @@ cd ..
 ### 2\. Use forward.py
 
 ```
-wget http://vision.cs.utexas.edu/voc/VOC2007_test/JPEGImages/004545.jpg
-
+curl http://vision.cs.utexas.edu/voc/VOC2007_test/JPEGImages/004545.jpg -o 004545.jpg
 python forward.py --img_fn 004545.jpg --gpu 0
 ```
 
@@ -72,62 +71,26 @@ Summarization of Faster R-CNN layers used during inference
 The region proposal layer (RPN) is consisted of `AnchorTargetLayer` and `ProposalLayer`. RPN takes feature maps from trunk network like VGG-16, and performs 3x3 convolution to it. Then, it applies two independent 1x1 convolutions to the output of the first 3x3 convolution. Resulting outputs are `rpn_cls_score` and `rpn_bbox_pred`.
 
 - The shape of `rpn_cls_score` is `(N, 2 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes and each bbox should have 2 values that mean object/background.
-- The shape of `rpn_bbox_pred` is `(N, 4 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes, and each bbox is represented with 4 values that mean left top x & y, width & height.
+- The shape of `rpn_bbox_pred` is `(N, 4 * n_anchors, 14, 14)` because each pixel on the feature map has `n_anchors` bboxes, and each bbox is represented with 4 values that mean left top `x` and `y`, `width` and `height`.
 
 ## Training
 
-### 1\. Download dataset
+### 1\. Make sure `chainercv` has been installed
+
+[ChainerCV](https://github.com/pfnet/chainercv) is a utility library enables Chainer to treat various datasets easily. It also provides some transformation utility for data augmentation, and includes some standard algorithms for some comptuer vision tasks. Check the repo to know details. Here I use (`VOCDetectionDataset`)[http://chainercv.readthedocs.io/en/latest/reference/datasets.html#vocdetectiondataset] of ChainerCV. Anyway, before starting training of FasterRCNN, please install ChainerCV via pip.
 
 ```
-if [ ! -d data ]; then mkdir data; fi; cd data
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
-tar xvf VOCtrainval_06-Nov-2007.tar
-tar xvf VOCtest_06-Nov-2007.tar
-tar xvf VOCdevkit_08-Jun-2007.tar
-rm -rf *.tar; cd ../
+pip install chainercv
 ```
 
-### 2\. Prepare ImageNet pre-trained model
-
-### Don't do this. Please see [the issue #15](https://github.com/mitmul/chainer-faster-rcnn/issues/15#issuecomment-275834389) and follow the instruction instead: [Can you make VGG16.model available? #15](https://github.com/mitmul/chainer-faster-rcnn/issues/15#issuecomment-275834389)
-
-> First, if you don't have docker and nvidia-docker, install them:
-	
-> ```
-> sudo apt-get update
-> sudo apt-get install -y apt-transport-https ca-certificates
-> sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-> echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" | sudo tee /etc/apt/sources.list.d/docker.list
-> sudo apt-get install -y linux-image-extra-$(uname -r) linux-image-extra-virtual
-> sudo apt-get update
-> sudo apt-get install -y docker-engine
-> sudo service docker start
-> ```
->
-> and then build caffe docker image and run the converter to make a chainer model from the pre-trained caffe model.
-> 
-> ```
-> cd docker
-> bash install_caffe_docker.sh
-> bash create_image.sh
-> bash run_caffe_docker.sh
-> cd ..
-> ```
-> 	
-> It creates `data/VGG16.model` that is converted from pre-trained model in Caffe format. The pre-trained model is the one distributed in [the official Model Zoo of Caffe wiki](https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md).
-
-### 3\. Start training
+### 2\. Start training
 
 ```
 python train.py
 ```
 
-## Workflow
+## Faster R-CNN Architecture
 
 **Note that it is a visualization of the workflow DURING INFERENCE**
 
 ![](https://raw.githubusercontent.com/wiki/mitmul/chainer-faster-rcnn/images/Faster%20R-CNN.png)
-
-

@@ -3,13 +3,14 @@
 
 # Copyright (c) 2016 Shunta Saito
 
-from chainer import optimizers
-from lib.models.faster_rcnn import FasterRCNN
-from lib.models.vgg16 import VGG16
+import unittest
+
+import numpy as np
 
 import chainer
-import numpy as np
-import unittest
+from chainer import optimizers
+from chainer.links import VGG16Layers
+from lib.models.faster_rcnn import FasterRCNN
 
 
 class TestFasterRCNN(unittest.TestCase):
@@ -30,7 +31,7 @@ class TestFasterRCNN(unittest.TestCase):
     def test_forward_cpu_VGG16(self):
         print('test_forward_cpu_VGG16')
         gpu = -1
-        trunk = VGG16
+        trunk = VGG16Layers
         rpn_in_ch = 512
         rpn_out_ch = 512
         n_anchors = 9
@@ -50,7 +51,7 @@ class TestFasterRCNN(unittest.TestCase):
 
     def test_backward_cpu_VGG16(self):
         gpu = -1
-        trunk = VGG16
+        trunk = VGG16Layers
         rpn_in_ch = 512
         rpn_out_ch = 512
         n_anchors = 9

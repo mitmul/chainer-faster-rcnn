@@ -49,15 +49,15 @@ class TestAnchorTargetLayer(unittest.TestCase):
 
     def test_generate_anchors(self):
         anchor_target_layer = AnchorTargetLayer()
-        ret = np.array([[-83.,  -39.,  100.,   56.],
-                        [-175.,  -87.,  192.,  104.],
-                        [-359., -183.,  376.,  200.],
-                        [-55.,  -55.,   72.,   72.],
-                        [-119., -119.,  136.,  136.],
-                        [-247., -247.,  264.,  264.],
-                        [-35.,  -79.,   52.,   96.],
-                        [-79., -167.,   96.,  184.],
-                        [-167., -343.,  184.,  360.]]) - 1
+        ret = np.array([[-83., -39., 100., 56.],
+                        [-175., -87., 192., 104.],
+                        [-359., -183., 376., 200.],
+                        [-55., -55., 72., 72.],
+                        [-119., -119., 136., 136.],
+                        [-247., -247., 264., 264.],
+                        [-35., -79., 52., 96.],
+                        [-79., -167., 96., 184.],
+                        [-167., -343., 184., 360.]]) - 1
         self.assertEqual(anchor_target_layer.anchors.shape, ret.shape)
         np.testing.assert_array_equal(anchor_target_layer.anchors, ret)
 
