@@ -4,10 +4,10 @@
 import chainer
 import chainer.functions as F
 import chainer.links as L
-from chainer.cuda import to_gpu
+from chainer import cuda
 from models.anchor_target_layer import AnchorTargetLayer
 from models.proposal_layer import ProposalLayer
-from chainer import cuda
+
 
 class RegionProposalNetwork(chainer.Chain):
 
@@ -65,7 +65,8 @@ class RegionProposalNetwork(chainer.Chain):
         """Calculate RoIs or losses and RoIs.
 
         Args:
-            x (:class:~`Variable`): Input feature maps.
+            x (:class:~`Variable`): Input feature maps. The shape should be
+                :math:`(1, C, feat_h, feat_w)`.
             img_info (list of integers): The input image size in
                 :math:`(img_h, img_w)`.
             gt_boxes (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
@@ -84,10 +85,20 @@ class RegionProposalNetwork(chainer.Chain):
         rois, probs = self.proposal_layer(rpn_cls_prob.data[0], rpn_bbox_pred.data[0], img_info)
 
         if self.train and gt_boxes is not None:
-            bbox_labels, bbox_reg_targets = self.anchor_target_layer(gt_boxes, img_info)
+            bbox_labels, bbox_reg_targets = self.anchor_target_layer(rpn_cls_prob.data[0], gt_boxes, img_info)
+            xp = cuda.get_array_module(bbox_labels)
+            if bbox_labels.dtype is not xp.int32:
+                bbox_labels = bbox_labels.astype(xp.int32)
 
+            n_anchors, feat_h, feat_w = self.proposal_layer._num_anchors, x.shape[2], x.shape[3]
+            bbox_labels = bbox_labels.reshape(1, n_anchors, feat_h, feat_w)
+            rpn_cls_score = rpn_cls_score.reshape(1, 2, n_anchors, feat_h, feat_w)
             rpn_cls_loss = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
+
+            bbox_reg_targets = bbox_reg_targets.transpose(1, 0).ravel()[None, :]
+            rpn_bbox_pred = F.expand_dims(F.flatten(rpn_bbox_pred), 0)
             rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
-            return rpn_cls_loss, rpn_loss_bbox, rois
+
+            return rpn_cls_loss, rpn_loss_bbox
         else:
             return rois, probs

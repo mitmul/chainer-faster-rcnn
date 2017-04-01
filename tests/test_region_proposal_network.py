@@ -37,6 +37,4 @@ class TestRegionProposalNetwork(unittest.TestCase):
         self.rpn.train = False
         rois, probs = self.rpn(x, self.img_info)
         print(rois.shape)
-        print(rois)
         print(probs.shape)
-        print(probs)

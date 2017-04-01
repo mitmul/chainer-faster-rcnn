@@ -59,6 +59,7 @@ class AnchorTargetLayer(ProposalLayer):
             img_info (list of integers): The input image size in
                 :math:`(img_h, img_w)`.
         """
+        xp = cuda.get_array_module(rpn_cls_prob)
 
         all_anchors = self._generate_all_anchors(rpn_cls_prob)
 
@@ -69,9 +70,9 @@ class AnchorTargetLayer(ProposalLayer):
         # Convert fixed anchors in (x, y, w, h) to (dx, dy, dw, dh)
         bbox_reg_targets = bbox_transform(all_inside_anchors, gt_boxes[argmax_overlaps_inds, :])
 
-        bbox_labels_out = np.ones((all_anchors.shape[0],)) * -1
+        bbox_labels_out = xp.ones((all_anchors.shape[0],), dtype=xp.float32) * -1
         bbox_labels_out[inds_inside] = bbox_labels
-        bbox_reg_targets_out = np.ones_like(all_anchors) * -1
+        bbox_reg_targets_out = xp.ones_like(all_anchors, dtype=xp.float32) * -1
         bbox_reg_targets_out[inds_inside, :] = bbox_reg_targets
 
         return bbox_labels_out, bbox_reg_targets_out

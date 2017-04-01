@@ -3,13 +3,10 @@
 import chainer
 import chainer.functions as F
 import chainer.links as L
-from chainer import Variable
 from chainer import reporter
-from chainer.cuda import to_gpu
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
 from models.region_proposal_network import RegionProposalNetwork
-from models.vgg16 import VGG16
 from models.vgg16 import VGG16Prev
 
 
@@ -26,16 +23,24 @@ class FasterRCNN(chainer.Chain):
             cls_score=L.Linear(4096, num_classes),
             bbox_pred=L.Linear(4096, num_classes * 4),
         )
-        self._train = True
+        self._rcnn_train = True
+        self._rpn_train = True
         self.spatial_scale = 1. / feat_stride
 
     @property
-    def train(self):
-        return self._train
+    def rcnn_train(self):
+        return self._rcnn_train
 
-    @train.setter
-    def train(self, val):
-        self._train = val
+    @rcnn_train.setter
+    def rcnn_train(self, val):
+        self._rcnn_train = val
+
+    @property
+    def rpn_train(self):
+        return self.RPN.train
+
+    @rpn_train.setter
+    def rpn_train(self, val):
         self.RPN.train = val
 
     def __call__(self, x, img_info, gt_boxes=None):
@@ -44,16 +49,16 @@ class FasterRCNN(chainer.Chain):
         xp = self.trunk.xp
         feature_map = self.trunk(x)
 
-        if self.train and gt_boxes is not None:
-            rpn_cls_loss, rpn_loss_bbox, rois = self.RPN(feature_map, img_info, gt_boxes)
+        if self.rpn_train and gt_boxes is not None:
+            return self.RPN(feature_map, img_info, gt_boxes)
         else:
             rois, probs = self.RPN(feature_map, img_info, gt_boxes)
 
         # RCNN
         brois = xp.concatenate((xp.zeros((len(rois), 1), dtype=xp.float32), rois), axis=1)
         pool5 = F.roi_pooling_2d(feature_map, brois, 7, 7, self.spatial_scale)
-        fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.train)
-        fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.train)
+        fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.rcnn_train)
+        fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.rcnn_train)
 
         # Per class probability
         cls_score = self.cls_score(fc7)
@@ -62,23 +67,14 @@ class FasterRCNN(chainer.Chain):
         bbox_pred = self.bbox_pred(fc7)
         box_deltas = bbox_pred.data
 
-        if self.train:
-            if self.gpu >= 0:
-                def tg(x): return to_gpu(x, device=self.gpu)
-                labels = tg(labels)
-                bbox_targets = tg(bbox_targets)
-                bbox_inside_weights = tg(bbox_inside_weights)
-                bbox_outside_weights = tg(bbox_outside_weights)
+        if self.rcnn_train:
+            return 0
             loss_cls = F.softmax_cross_entropy(cls_score, labels)
-
-            # huber_loss is smooth_l1_loss when delta = 1
-            loss_bbox = F.huber_loss(bbox_pred, bbox_targets, 1.0)
             reporter.report({'rpn_loss_cls': rpn_cls_loss,
                              'rpn_loss_bbox': rpn_loss_bbox,
                              'loss_bbox': loss_bbox,
                              'loss_cls': loss_cls}, self)
 
-            return rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls
         else:
             pred_boxes = bbox_transform_inv(rois, box_deltas)
             pred_boxes = clip_boxes(pred_boxes, img_info)

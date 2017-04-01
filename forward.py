@@ -23,7 +23,8 @@ PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
 def get_model(gpu):
     model = FasterRCNN()
-    model.train = False
+    model.rcnn_train = False
+    model.rpn_train = False
     serializers.load_npz('data/VGG16_faster_rcnn_final.model', model)
 
     return model

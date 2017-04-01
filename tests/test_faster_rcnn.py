@@ -29,9 +29,8 @@ class TestFasterRCNN(unittest.TestCase):
             [160, 40, 200, 70, 2]
         ])
 
-    def test_forward_cpu_VGG16Prev(self):
+    def test_forward_whole_cpu_VGG16Prev(self):
         print('test_forward_cpu_VGG16')
-        gpu = -1
         trunk = VGG16Prev
         rpn_in_ch = 512
         rpn_out_ch = 512
@@ -42,54 +41,31 @@ class TestFasterRCNN(unittest.TestCase):
         model = FasterRCNN(
             trunk, rpn_in_ch, rpn_out_ch, feat_stride,
             anchor_ratios, anchor_scales, num_classes)
-
-        model.train = False
+        model.rpn_train = False
+        model.rcnn_train = False
         ret = model(chainer.Variable(self.x, volatile=True), self.im_info)
         assert(len(ret) == 2)
         assert(isinstance(ret[0], chainer.Variable))
         assert(isinstance(ret[1], np.ndarray))
-    #
-    # def test_backward_cpu_VGG16(self):
-    #     gpu = -1
-    #     trunk = VGG16Prev
-    #     rpn_in_ch = 512
-    #     rpn_out_ch = 512
-    #     feat_stride = 16
-    #     anchor_ratios = [0.5, 1, 2]
-    #     anchor_scales = [8, 16, 32]
-    #     num_classes = 21
-    #     model = FasterRCNN(
-    #         gpu, trunk, rpn_in_ch, rpn_out_ch, feat_stride,
-    #         anchor_ratios, anchor_scales, num_classes)
-    #     opt = optimizers.Adam()
-    #     opt.setup(model)
-    #
-    #     model.train = True
-    #
-    #     rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
-    #         model(chainer.Variable(self.x, volatile=False),
-    #               self.im_info, self.gt_boxes)
-    #     model.zerograds()
-    #     rpn_cls_loss.backward()
-    #     opt.update()
-    #
-    #     rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
-    #         model(chainer.Variable(self.x, volatile=False),
-    #               self.im_info, self.gt_boxes)
-    #     model.zerograds()
-    #     rpn_loss_bbox.backward()
-    #     opt.update()
-    #
-    #     rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
-    #         model(chainer.Variable(self.x, volatile=False),
-    #               self.im_info, self.gt_boxes)
-    #     model.zerograds()
-    #     loss_bbox.backward()
-    #     opt.update()
-    #
-    #     rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls = \
-    #         model(chainer.Variable(self.x, volatile=False),
-    #               self.im_info, self.gt_boxes)
-    #     model.zerograds()
-    #     loss_cls.backward()
-    #     opt.update()
+
+    def test_backward_rpn_cpu_VGG16(self):
+        trunk = VGG16Prev
+        rpn_in_ch = 512
+        rpn_out_ch = 512
+        feat_stride = 16
+        anchor_ratios = [0.5, 1, 2]
+        anchor_scales = [8, 16, 32]
+        num_classes = 21
+        model = FasterRCNN(
+            trunk, rpn_in_ch, rpn_out_ch, feat_stride,
+            anchor_ratios, anchor_scales, num_classes)
+        model.rpn_train = True
+        model.rcnn_train = False
+        opt = optimizers.Adam()
+        opt.setup(model)
+
+        rpn_cls_loss, rpn_loss_bbox = model(self.x, self.im_info, self.gt_boxes)
+        model.zerograds()
+        rpn_cls_loss.backward()
+        rpn_loss_bbox.backward()
+        opt.update()
