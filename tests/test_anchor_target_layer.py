@@ -15,7 +15,7 @@ class TestAnchorTargetLayer(unittest.TestCase):
     def setUp(self):
         self.x = np.arange(256 * 14 * 14, dtype=np.float32).reshape(256, 14, 14)
         self.img_info = [224, 224]
-        self.anchor_target_layer = AnchorTargetLayer(14, 14, 16, [0.5, 1, 2], [8, 16, 32])
+        self.anchor_target_layer = AnchorTargetLayer(16, [0.5, 1, 2], [8, 16, 32])
         self.gt_boxes = np.array([
             [10, 10, 60, 200, 0],
             [50, 100, 210, 210, 1],
@@ -29,8 +29,8 @@ class TestAnchorTargetLayer(unittest.TestCase):
         cv.imwrite('tests/gt_boxes.png', gt_canvas)
 
     def test_inside_anchors(self):
-        inds_inside, all_inside_anchors = keep_inside(
-            self.anchor_target_layer.all_anchors, self.img_info)
+        all_anchors = self.anchor_target_layer._generate_all_anchors(self.x)
+        inds_inside, all_inside_anchors = keep_inside(all_anchors, self.img_info)
         anchor_canvas = np.zeros((224, 224))
         for anchor in all_inside_anchors:
             anchor = [int(a) for a in anchor]
@@ -39,13 +39,13 @@ class TestAnchorTargetLayer(unittest.TestCase):
         cv.imwrite('tests/inside_anchors.png', anchor_canvas)
 
     def test_labels(self):
-        bbox_labels, bbox_reg_targets = self.anchor_target_layer(self.gt_boxes, self.img_info)
+        bbox_labels, bbox_reg_targets = self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
+        all_anchors = self.anchor_target_layer._generate_all_anchors(self.x)
 
-        self.assertEqual(len(bbox_labels), len(self.anchor_target_layer.all_anchors))
-        self.assertEqual(len(bbox_reg_targets), len(self.anchor_target_layer.all_anchors))
+        self.assertEqual(len(bbox_labels), len(all_anchors))
+        self.assertEqual(len(bbox_reg_targets), len(all_anchors))
 
-        inds_inside, all_inside_anchors = keep_inside(
-            self.anchor_target_layer.all_anchors, self.img_info)
+        inds_inside, all_inside_anchors = keep_inside(all_anchors, self.img_info)
 
         neg_canvas = np.zeros((224, 224))
         pos_canvas = np.zeros((224, 224))

@@ -141,15 +141,14 @@ class ProposalLayer(object):
                            self._nms_thresh)
         if self._post_nms_top_n > 0:
             keep = keep[:self._post_nms_top_n]
-        proposals = proposals[keep]
-        fg_probs = fg_probs[keep]
+        proposals = xp.asarray(proposals[keep])
+        fg_probs = xp.asarray(fg_probs[keep])
 
         return proposals, fg_probs
 
-    def _generate_all_anchors(self, rpn_bbox_pred=None, feat_h=None, feat_w=None):
+    def _generate_all_anchors(self, rpn_bbox_pred):
         xp = cuda.get_array_module(rpn_bbox_pred)
-        if rpn_bbox_pred is not None:
-            _, feat_h, feat_w = rpn_bbox_pred.shape
+        _, feat_h, feat_w = rpn_bbox_pred.shape
 
         # Create lattice
         shift_x = xp.arange(0, feat_w) * self._feat_stride

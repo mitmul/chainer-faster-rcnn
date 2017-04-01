@@ -8,9 +8,7 @@ from chainer import reporter
 from chainer.cuda import to_gpu
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
-from models.proposal_target_layer import ProposalTargetLayer
 from models.region_proposal_network import RegionProposalNetwork
-from models.smooth_l1_loss import smooth_l1_loss
 from models.vgg16 import VGG16
 from models.vgg16 import VGG16Prev
 
@@ -43,6 +41,7 @@ class FasterRCNN(chainer.Chain):
     def __call__(self, x, img_info, gt_boxes=None):
         assert x.shape[0] == 1, 'Batchsize should be 1 but was {}'.format(x.shape[0])
 
+        xp = self.trunk.xp
         feature_map = self.trunk(x)
 
         if self.train and gt_boxes is not None:
@@ -51,13 +50,13 @@ class FasterRCNN(chainer.Chain):
             rois, probs = self.RPN(feature_map, img_info, gt_boxes)
 
         # RCNN
-        pool5 = F.roi_pooling_2d(feature_map, rois, 7, 7, self.spatial_scale)
+        brois = xp.concatenate((xp.zeros((len(rois), 1), dtype=xp.float32), rois), axis=1)
+        pool5 = F.roi_pooling_2d(feature_map, brois, 7, 7, self.spatial_scale)
         fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.train)
         fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.train)
 
         # Per class probability
         cls_score = self.cls_score(fc7)
-        cls_prob = F.softmax(cls_score)
 
         # BBox predictions
         bbox_pred = self.bbox_pred(fc7)
@@ -81,7 +80,7 @@ class FasterRCNN(chainer.Chain):
 
             return rpn_cls_loss, rpn_loss_bbox, loss_bbox, loss_cls
         else:
-            pred_boxes = bbox_transform_inv(boxes, box_deltas, self.gpu)
-            pred_boxes = clip_boxes(pred_boxes, im_info[0][:2], self.gpu)
+            pred_boxes = bbox_transform_inv(rois, box_deltas)
+            pred_boxes = clip_boxes(pred_boxes, img_info)
 
-            return cls_prob, pred_boxes
+            return F.softmax(cls_score), pred_boxes

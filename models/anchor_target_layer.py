@@ -44,14 +44,15 @@ class AnchorTargetLayer(ProposalLayer):
     RPN_FG_FRACTION = 0.5
     RPN_BATCHSIZE = 256
 
-    def __init__(self, feat_h=14, feat_w=14, feat_stride=16, anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32)):
+    def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32)):
         super(AnchorTargetLayer, self).__init__(feat_stride, anchor_ratios, anchor_scales)
-        self.all_anchors = self._generate_all_anchors(feat_h=feat_h, feat_w=feat_w)
 
-    def __call__(self, gt_boxes, img_info):
+    def __call__(self, rpn_cls_prob, gt_boxes, img_info):
         """It takes numpy or cupy arrays
 
         Args:
+            rpn_cls_prob (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
+                :math:`(2 * n_anchors, feat_h, feat_w)`-shaped array.
             gt_boxes (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
                 :math:`(n_boxes, x1, y1, x2, y2)`-shaped array. The scale is
                 at the input image scale.
@@ -59,16 +60,18 @@ class AnchorTargetLayer(ProposalLayer):
                 :math:`(img_h, img_w)`.
         """
 
-        inds_inside, all_inside_anchors = keep_inside(self.all_anchors, img_info)
+        all_anchors = self._generate_all_anchors(rpn_cls_prob)
+
+        inds_inside, all_inside_anchors = keep_inside(all_anchors, img_info)
 
         argmax_overlaps_inds, bbox_labels = self._create_bbox_labels(inds_inside, all_inside_anchors, gt_boxes)
 
         # Convert fixed anchors in (x, y, w, h) to (dx, dy, dw, dh)
         bbox_reg_targets = bbox_transform(all_inside_anchors, gt_boxes[argmax_overlaps_inds, :])
 
-        bbox_labels_out = np.ones((self.all_anchors.shape[0],)) * -1
+        bbox_labels_out = np.ones((all_anchors.shape[0],)) * -1
         bbox_labels_out[inds_inside] = bbox_labels
-        bbox_reg_targets_out = np.ones_like(self.all_anchors) * -1
+        bbox_reg_targets_out = np.ones_like(all_anchors) * -1
         bbox_reg_targets_out[inds_inside, :] = bbox_reg_targets
 
         return bbox_labels_out, bbox_reg_targets_out

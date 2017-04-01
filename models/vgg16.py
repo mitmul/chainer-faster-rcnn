@@ -34,7 +34,7 @@ class VGG16(vgg.VGG16Layers):
 class VGG16Prev(chainer.Chain):
 
     def __init__(self, train=False):
-        super(VGG16, self).__init__()
+        super(VGG16Prev, self).__init__()
         self.trunk = [
             ('conv1_1', L.Convolution2D(3, 64, 3, 1, 1)),
             ('_relu1_1', F.ReLU()),

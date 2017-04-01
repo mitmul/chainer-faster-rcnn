@@ -9,8 +9,8 @@ import chainer
 import cv2 as cv
 from chainer import serializers
 from chainer.cuda import to_gpu
-from lib.cpu_nms import cpu_nms as nms
-from lib.models.faster_rcnn import FasterRCNN
+from models.cpu_nms import cpu_nms as nms
+from models.faster_rcnn import FasterRCNN
 
 CLASSES = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -22,7 +22,7 @@ PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
 
 def get_model(gpu):
-    model = FasterRCNN(gpu)
+    model = FasterRCNN()
     model.train = False
     serializers.load_npz('data/VGG16_faster_rcnn_final.model', model)
 
@@ -54,7 +54,7 @@ def draw_result(out, im_scale, clss, bbox, nms_thresh, conf):
 
         inds = np.where(dets[:, -1] >= conf)[0]
         for i in inds:
-            x1, y1, x2, y2 = map(int, dets[i, :4])
+            x1, y1, x2, y2 = map(int, dets[i, :4] / im_scale)
             cv.rectangle(out, (x1, y1), (x2, y2), (0, 0, 255), 2, CV_AA)
             ret, baseline = cv.getTextSize(
                 CLASSES[cls_id], cv.FONT_HERSHEY_SIMPLEX, 0.8, 1)
@@ -81,14 +81,14 @@ if __name__ == '__main__':
         model.to_gpu(args.gpu)
 
     orig_image = cv.imread(args.img_fn)
+    print('orig_image:', orig_image.shape)
     img, im_scale = img_preprocessing(orig_image, PIXEL_MEANS)
     img = np.expand_dims(img, axis=0)
+    print('img:', img.shape, im_scale)
     if args.gpu >= 0:
         img = to_gpu(img, device=args.gpu)
     img = chainer.Variable(img, volatile=True)
-    h, w = img.data.shape[2:]
-    im_info = chainer.Variable(np.array([[h, w, im_scale]]))
-    cls_score, bbox_pred = model(img, im_info)
+    cls_score, bbox_pred = model(img, img.data.shape[2:])
     cls_score = cls_score.data
 
     if args.gpu >= 0:

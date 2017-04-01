@@ -7,8 +7,7 @@ import chainer.links as L
 from chainer.cuda import to_gpu
 from models.anchor_target_layer import AnchorTargetLayer
 from models.proposal_layer import ProposalLayer
-from models.smooth_l1_loss import smooth_l1_loss
-
+from chainer import cuda
 
 class RegionProposalNetwork(chainer.Chain):
 
@@ -50,7 +49,7 @@ class RegionProposalNetwork(chainer.Chain):
             rpn_bbox_pred=L.Convolution2D(mid_ch, 4 * n_anchors, 1, 1, 0, initialW=w)
         )
         self.proposal_layer = ProposalLayer(feat_stride, anchor_ratios, anchor_scales)
-        self.anchor_target_layer = ProposalLayer(feat_stride, anchor_ratios, anchor_scales)
+        self.anchor_target_layer = AnchorTargetLayer(feat_stride, anchor_ratios, anchor_scales)
         self._train = True
 
     @property
@@ -66,8 +65,7 @@ class RegionProposalNetwork(chainer.Chain):
         """Calculate RoIs or losses and RoIs.
 
         Args:
-            x (:class:~`Variable` or :class:`~numpy.ndarray` or \
-                    :class:`~cupy.ndarray`): Input feature maps.
+            x (:class:~`Variable`): Input feature maps.
             img_info (list of integers): The input image size in
                 :math:`(img_h, img_w)`.
             gt_boxes (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):

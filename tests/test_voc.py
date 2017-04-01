@@ -18,7 +18,7 @@ class TestVOC(unittest.TestCase):
     def test_save_example(self):
         ret = self.dataset[:2]
 
-        self.assertEqual(len(ret), 3)
+        self.assertEqual(len(ret), 2)
         self.assertEqual(len(ret[0]), len(ret[1]))
         self.assertEqual(len(ret[0]), 3)
 
