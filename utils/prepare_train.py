@@ -1,18 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from chainer import optimizers
-
 import argparse
-import chainer
-import chainer.links as L
 import imp
 import logging
-import numpy as np
 import os
 import shutil
 import sys
 import time
+
+import numpy as np
+
+import chainer
+import chainer.links as L
+from chainer import optimizers
 
 
 def create_args():

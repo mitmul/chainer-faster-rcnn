@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+
 import numpy as np
 
 import cv2 as cv
+from chainer.dataset import download
 
 import matplotlib  # isort:skip
 matplotlib.use('Agg')

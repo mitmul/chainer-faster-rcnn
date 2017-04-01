@@ -44,14 +44,14 @@ import six
 #       [-167., -343.,  184.,  360.]])
 
 
-def generate_anchors(base_size=16, ratios=[0.5, 1, 2],
-                     scales=[4, 8, 16, 32], xp=np):
+def generate_anchors(base_size=15, ratios=(0.5, 1, 2), scales=(4, 8, 16, 32)):
     # Generate anchor (reference) windows by enumerating aspect ratios X
-    # scales wrt a reference (0, 0, 15, 15) window.
-    base_anchor = xp.array([1, 1, base_size, base_size]) - 1
-    ratio_anchors = _ratio_enum(base_anchor, xp.asarray(ratios), xp)
-    anchors = xp.vstack([_scale_enum(ratio_anchors[i, :], xp.asarray(scales), xp)
-                         for i in six.moves.range(len(ratio_anchors))])
+    # scales w.r.t. a reference (0, 0, 15, 15) window.
+    base_anchor = np.array([0, 0, base_size, base_size])
+    ratio_anchors = _ratio_enum(base_anchor, np.asarray(ratios))
+    anchors = np.vstack(
+        [_scale_enum(ratio_anchors[i, :], np.asarray(scales))
+         for i in six.moves.range(len(ratio_anchors))])
     return anchors
 
 
@@ -64,30 +64,30 @@ def _whctrs(anchor):
     return w, h, x_ctr, y_ctr
 
 
-def _mkanchors(ws, hs, x_ctr, y_ctr, xp=np):
+def _mkanchors(ws, hs, x_ctr, y_ctr):
     # Given a vector of widths (ws) and heights (hs) around a center
     # (x_ctr, y_ctr), output a set of anchors (windows).
     ws, hs = ws[:, None], hs[:, None]
-    anchors = xp.hstack((x_ctr - 0.5 * (ws - 1), y_ctr - 0.5 * (hs - 1),
+    anchors = np.hstack((x_ctr - 0.5 * (ws - 1), y_ctr - 0.5 * (hs - 1),
                          x_ctr + 0.5 * (ws - 1), y_ctr + 0.5 * (hs - 1)))
     return anchors
 
 
-def _ratio_enum(anchor, ratios, xp=np):
+def _ratio_enum(anchor, ratios):
     # Enumerate a set of anchors for each aspect ratio wrt an anchor.
     w, h, x_ctr, y_ctr = _whctrs(anchor)
     size = w * h
     size_ratios = size / ratios
-    ws = xp.rint(xp.sqrt(size_ratios))
-    hs = xp.rint(ws * ratios)
-    anchors = _mkanchors(ws, hs, x_ctr, y_ctr, xp)
+    ws = np.rint(np.sqrt(size_ratios))
+    hs = np.rint(ws * ratios)
+    anchors = _mkanchors(ws, hs, x_ctr, y_ctr)
     return anchors
 
 
-def _scale_enum(anchor, scales, xp=np):
+def _scale_enum(anchor, scales):
     # Enumerate a set of anchors for each scale wrt an anchor.
     w, h, x_ctr, y_ctr = _whctrs(anchor)
     ws = w * scales
     hs = h * scales
-    anchors = _mkanchors(ws, hs, x_ctr, y_ctr, xp)
+    anchors = _mkanchors(ws, hs, x_ctr, y_ctr)
     return anchors

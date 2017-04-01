@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
+
+import numpy as np
+
+import chainer
+import cv2 as cv
 from chainer import serializers
 from chainer.cuda import to_gpu
 from lib.cpu_nms import cpu_nms as nms
 from lib.models.faster_rcnn import FasterRCNN
-
-import argparse
-import chainer
-import cv2 as cv
-import numpy as np
 
 CLASSES = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',

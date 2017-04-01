@@ -6,9 +6,32 @@
 import chainer
 import chainer.functions as F
 import chainer.links as L
+from chainer.links.model.vision import vgg
 
 
-class VGG16(chainer.Chain):
+class VGG16(vgg.VGG16Layers):
+
+    def __init__(self):
+        super(VGG16, self).__init__()
+        self._children.remove('fc6')
+        self._children.remove('fc7')
+        self._children.remove('fc8')
+        del self.fc6
+        del self.fc7
+        del self.fc8
+        del self.functions['pool5']
+        del self.functions['fc6']
+        del self.functions['fc7']
+        del self.functions['fc8']
+        del self.functions['prob']
+        self.train = True
+
+    def __call__(self, x):
+        return super(VGG16, self).__call__(
+            x, ['conv5_3'], test=not self.train)['conv5_3']
+
+
+class VGG16Prev(chainer.Chain):
 
     def __init__(self, train=False):
         super(VGG16, self).__init__()
@@ -55,5 +78,14 @@ class VGG16(chainer.Chain):
             else:
                 x = f(x)
             if name == '_relu5_3':
-                self.feature = x
+                break
         return x
+
+
+if __name__ == '__main__':
+    model = VGG16()
+    model.train = False
+    import numpy as np
+    x = np.zeros((1, 3, 224, 224), dtype=np.float32)
+    y = model(x)
+    print(y.shape)

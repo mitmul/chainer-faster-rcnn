@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from chainer import serializers
-from chainer import Variable
-from lib.models.vgg16 import VGG16
-
 import caffe
+from chainer import Variable
+from chainer import serializers
+from lib.models.vgg16 import VGG16
 
 if __name__ == '__main__':
     param_fn = 'data/VGG_ILSVRC_16_layers.caffemodel'

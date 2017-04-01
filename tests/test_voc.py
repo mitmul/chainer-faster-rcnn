@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-import cv2 as cv
 import unittest
-from lib.datasets.voc.dataset import VOC
+
+import cv2 as cv
+from datasets.pascal_voc_detection_dataset import VOC
 
 
 class TestVOC(unittest.TestCase):
@@ -17,7 +18,7 @@ class TestVOC(unittest.TestCase):
     def test_save_example(self):
         ret = self.dataset[:2]
 
-        self.assertEqual(len(ret), 2)
+        self.assertEqual(len(ret), 3)
         self.assertEqual(len(ret[0]), len(ret[1]))
         self.assertEqual(len(ret[0]), 3)
 
