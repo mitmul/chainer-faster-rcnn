@@ -3,8 +3,9 @@
 
 import unittest
 
+import time
 import numpy as np
-
+import cupy as cp
 import cv2 as cv
 from models.anchor_target_layer import AnchorTargetLayer
 from models.bbox_transform import keep_inside
@@ -37,6 +38,16 @@ class TestAnchorTargetLayer(unittest.TestCase):
             cv.rectangle(anchor_canvas, (anchor[0], anchor[1]),
                          (anchor[2], anchor[3]), 255)
         cv.imwrite('tests/inside_anchors.png', anchor_canvas)
+
+    def test_time(self):
+        st = time.time()
+        self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
+        print('CPU:', time.time() - st, 'sec')
+        x = cp.asarray(self.x)
+        gt_boxes = cp.asarray(self.gt_boxes)
+        st = time.time()
+        self.anchor_target_layer(x, gt_boxes, self.img_info)
+        print('GPU:', time.time() - st, 'sec')
 
     def test_labels(self):
         bbox_labels, bbox_reg_targets = self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
