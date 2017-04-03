@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-
 import numpy as np
 
 import cv2 as cv
-from chainer.dataset import download
 
 import matplotlib  # isort:skip
 matplotlib.use('Agg')
@@ -43,13 +40,12 @@ class VOC(chainercv.datasets.VOCDetectionDataset):
             im_scale = float(self.IMG_MAX_SIZE) / float(im_size_max)
         img = cv.resize(img, None, None, fx=im_scale, fy=im_scale,
                         interpolation=cv.INTER_CUBIC)
-        h, w = img.shape[:2]
-        im_info = np.asarray([h, w, im_scale], dtype=np.float32)
         img = img.transpose(2, 0, 1).astype(np.float32)
-
         bbox *= im_scale
-        bbox = np.concatenate((bbox, label[:, None]), axis=1)
+        bbox = np.concatenate((bbox, label[:, None]), axis=1).astype(np.float32)
 
+        h, w = img.shape[1:]
+        im_info = [h, w, im_scale]
         return img, im_info, bbox
 
 

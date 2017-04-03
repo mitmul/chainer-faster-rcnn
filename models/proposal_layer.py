@@ -15,7 +15,6 @@
 
 import numpy as np
 
-import chainer
 from chainer import cuda
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
@@ -85,9 +84,9 @@ class ProposalLayer(object):
 
         Returns:
             proposals (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
-                A set of proposal rectangles represented in (`x_min`, `x_max`,
-                `y_min`, `y_max`). The scale of values are at the input image
-                size given by `img_info` argument.
+                A set of proposal rectangles represented in
+                :math:`(x_min, x_max, y_min, y_max)`. The scale of values are
+                at the input image size given by `img_info` argument.
 
         """
         xp = cuda.get_array_module(rpn_cls_prob)
@@ -117,8 +116,8 @@ class ProposalLayer(object):
         # Sort all (proposal, score) pairs by score from highest to lowest and
         # take top pre_nms_topN (e.g. 6000)
         order = fg_probs.ravel()
-        # TODO(mitmul): Use cupy version of argsort, when it's ready
-        order = chainer.cuda.to_cpu(order).argsort()[::-1]
+        # TODO(mitmul): Use cupy version of argsort, when it becomes available
+        order = cuda.to_cpu(order).argsort()[::-1]
         order = xp.asarray(order)
         if self._pre_nms_top_n > 0:
             order = order[:self._pre_nms_top_n]
@@ -130,13 +129,13 @@ class ProposalLayer(object):
         # return the top proposals (-> RoIs top)
         if isinstance(fg_probs, np.ndarray):
             keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
-        elif isinstance(fg_probs, chainer.cuda.cupy.ndarray):
+        elif isinstance(fg_probs, cuda.cupy.ndarray):
             # TODO(mitmul): Current gpu_nms assumes the input array is on CPU
             # and it performs memory allocation and transfer it to GPU inside
             # the CUDA kernel in gpu_nms. It should be replaced with CuPy
             # implementation.
-            fg_probs = chainer.cuda.to_cpu(fg_probs)
-            proposals = chainer.cuda.to_cpu(proposals)
+            fg_probs = cuda.to_cpu(fg_probs)
+            proposals = cuda.to_cpu(proposals)
             keep = gpu_nms(np.hstack((proposals, fg_probs)),
                            self._nms_thresh)
         if self._post_nms_top_n > 0:
@@ -160,6 +159,7 @@ class ProposalLayer(object):
         # Create all shifted anchors
         A = self._num_anchors
         K = len(shifts)  # number of lattice points = feat_h * feat_w
+        # TODO(mitmul): When generate_anchors is available on GPU, remove this
         if cuda.get_array_module(self._anchors) is not xp:
             self._anchors = xp.asarray(self._anchors)
         anchors = self._anchors.reshape(1, A, 4) + shifts.reshape(K, 1, 4)

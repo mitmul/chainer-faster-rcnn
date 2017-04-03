@@ -13,18 +13,18 @@ from models.vgg16 import VGG16Prev
 class FasterRCNN(chainer.Chain):
     def __init__(
             self, trunk_class=VGG16Prev, rpn_in_ch=512, rpn_mid_ch=512,
-            feat_stride=16, anchor_ratios=[0.5, 1, 2], anchor_scales=[8, 16, 32],
-            num_classes=21):
+            feat_stride=16, anchor_ratios=[0.5, 1, 2],
+            anchor_scales=[8, 16, 32], num_classes=21):
+        w = chainer.initializers.Normal(0.01)
         super(FasterRCNN, self).__init__(
             trunk=trunk_class(),
             RPN=RegionProposalNetwork(rpn_in_ch, rpn_mid_ch, feat_stride, anchor_ratios, anchor_scales, num_classes),
-            fc6=L.Linear(None, 4096),
-            fc7=L.Linear(4096, 4096),
-            cls_score=L.Linear(4096, num_classes),
-            bbox_pred=L.Linear(4096, num_classes * 4),
+            fc6=L.Linear(None, 4096, initialW=w),
+            fc7=L.Linear(4096, 4096, initialW=w),
+            cls_score=L.Linear(4096, num_classes, initialW=w),
+            bbox_pred=L.Linear(4096, num_classes * 4, initialW=w),
         )
         self._rcnn_train = True
-        self._rpn_train = True
         self.spatial_scale = 1. / feat_stride
 
     @property
@@ -50,7 +50,10 @@ class FasterRCNN(chainer.Chain):
         feature_map = self.trunk(x)
 
         if self.rpn_train and gt_boxes is not None:
-            return self.RPN(feature_map, img_info, gt_boxes)
+            rpn_cls_loss, rpn_loss_bbox = self.RPN(feature_map, img_info, gt_boxes)
+            reporter.report({'rpn_cls_loss': rpn_cls_loss,
+                             'rpn_loss_bbox': rpn_loss_bbox}, self)
+            return rpn_cls_loss, rpn_loss_bbox
         else:
             rois, probs = self.RPN(feature_map, img_info, gt_boxes)
 
@@ -65,18 +68,16 @@ class FasterRCNN(chainer.Chain):
 
         # BBox predictions
         bbox_pred = self.bbox_pred(fc7)
-        box_deltas = bbox_pred.data
+        bbox_deltas = bbox_pred.data
 
-        if self.rcnn_train:
-            return 0
-            loss_cls = F.softmax_cross_entropy(cls_score, labels)
-            reporter.report({'rpn_loss_cls': rpn_cls_loss,
-                             'rpn_loss_bbox': rpn_loss_bbox,
-                             'loss_bbox': loss_bbox,
+        if self.rcnn_train and gt_boxes is not None:
+            loss_cls = F.softmax_cross_entropy(cls_score, gt_boxes[:, -1].astype(xp.int32))
+            loss_bbox = F.huber_loss(bbox_deltas, gt_boxes[:, :4], 1)
+            reporter.report({'loss_bbox': loss_bbox,
                              'loss_cls': loss_cls}, self)
-
+            return loss_cls, loss_bbox
         else:
-            pred_boxes = bbox_transform_inv(rois, box_deltas)
+            pred_boxes = bbox_transform_inv(rois, bbox_deltas)
             pred_boxes = clip_boxes(pred_boxes, img_info)
 
             return F.softmax(cls_score), pred_boxes

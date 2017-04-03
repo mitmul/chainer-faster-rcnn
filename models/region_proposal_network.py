@@ -86,11 +86,8 @@ class RegionProposalNetwork(chainer.Chain):
 
         if self.train and gt_boxes is not None:
             bbox_labels, bbox_reg_targets = self.anchor_target_layer(rpn_cls_prob.data[0], gt_boxes, img_info)
-            xp = cuda.get_array_module(bbox_labels)
-            if bbox_labels.dtype is not xp.int32:
-                bbox_labels = bbox_labels.astype(xp.int32)
-
-            n_anchors, feat_h, feat_w = self.proposal_layer._num_anchors, x.shape[2], x.shape[3]
+            n_anchors = self.proposal_layer._num_anchors
+            feat_h, feat_w = x.shape[2], x.shape[3]
             bbox_labels = bbox_labels.reshape(1, n_anchors, feat_h, feat_w)
             rpn_cls_score = rpn_cls_score.reshape(1, 2, n_anchors, feat_h, feat_w)
             rpn_cls_loss = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
@@ -98,7 +95,6 @@ class RegionProposalNetwork(chainer.Chain):
             bbox_reg_targets = bbox_reg_targets.transpose(1, 0).ravel()[None, :]
             rpn_bbox_pred = F.expand_dims(F.flatten(rpn_bbox_pred), 0)
             rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
-
             return rpn_cls_loss, rpn_loss_bbox
         else:
             return rois, probs

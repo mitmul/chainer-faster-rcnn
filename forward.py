@@ -69,7 +69,7 @@ def draw_result(out, im_scale, clss, bbox, nms_thresh, conf):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img_fn', type=str, default='sample.jpg')
+    parser.add_argument('--img_fn', type=str)
     parser.add_argument('--out_fn', type=str, default='result.jpg')
     parser.add_argument('--nms_thresh', type=float, default=0.3)
     parser.add_argument('--conf', type=float, default=0.8)

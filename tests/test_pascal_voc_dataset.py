@@ -5,7 +5,7 @@ import os
 import unittest
 
 import cv2 as cv
-from datasets.pascal_voc_detection_dataset import VOC
+from datasets.pascal_voc_dataset import VOC
 
 
 class TestVOC(unittest.TestCase):
@@ -16,14 +16,17 @@ class TestVOC(unittest.TestCase):
             os.makedirs('tests/imgs')
 
     def test_save_example(self):
-        ret = self.dataset[:2]
+        ret = self.dataset[:5]
 
-        self.assertEqual(len(ret), 2)
+        self.assertEqual(len(ret), 5)
         self.assertEqual(len(ret[0]), len(ret[1]))
         self.assertEqual(len(ret[0]), 3)
+        self.assertEqual(ret[0][0].ndim, 3)
+        self.assertEqual(len(ret[0][1]), 2)
 
-        for i in range(2):
+        for i in range(5):
             img, im_info, bbox = ret[i]
+            self.assertEqual(bbox.shape[1], 5)
             img = img.transpose(1, 2, 0) + self.dataset.mean
             for bb in bbox:
                 bb = [int(b) for b in bb]

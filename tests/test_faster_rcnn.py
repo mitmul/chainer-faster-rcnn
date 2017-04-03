@@ -3,35 +3,38 @@
 
 # Copyright (c) 2016 Shunta Saito
 
+import time
 import unittest
 
 import numpy as np
 
 import chainer
+import cupy as cp
 from chainer import optimizers
+from chainer import testing
 from models.faster_rcnn import FasterRCNN
-from models.vgg16 import VGG16Prev
 from models.vgg16 import VGG16
+from models.vgg16 import VGG16Prev
+from datasets.pascal_voc_dataset import VOC
 
 
+@testing.parameterize(*testing.product({
+    'trunk': [VGG16Prev, VGG16],
+    'train': [(True, False), (False, True), (False, False)],
+    'device': [-1, 0],
+}))
 class TestFasterRCNN(unittest.TestCase):
 
     def setUp(self):
         chainer.set_debug(True)
         np.random.seed(0)
-        x = np.random.randint(0, 255, size=(224, 224, 3)).astype(np.float)
-        x -= np.array([[[102.9801, 115.9465, 122.7717]]])
-        self.x = np.expand_dims(x, 0).transpose(0, 3, 1, 2).astype(np.float32)
-        self.im_info = [224, 224]
-        self.gt_boxes = np.array([
-            [10, 10, 60, 200, 0],
-            [50, 100, 210, 210, 1],
-            [160, 40, 200, 70, 2]
-        ])
+        dataset = VOC('train')
+        img, im_info, bbox = dataset[0]
+        self.x = img[None, ...]
+        self.im_info = im_info
+        self.gt_boxes = bbox
 
-    def test_forward_whole_cpu_VGG16Prev(self):
-        print('test_forward_cpu_VGG16')
-        trunk = VGG16Prev
+    def test_forward_whole(self):
         rpn_in_ch = 512
         rpn_out_ch = 512
         feat_stride = 16
@@ -39,17 +42,23 @@ class TestFasterRCNN(unittest.TestCase):
         anchor_scales = [8, 16, 32]
         num_classes = 21
         model = FasterRCNN(
-            trunk, rpn_in_ch, rpn_out_ch, feat_stride,
+            self.trunk, rpn_in_ch, rpn_out_ch, feat_stride,
             anchor_ratios, anchor_scales, num_classes)
-        model.rpn_train = False
-        model.rcnn_train = False
+        model.rpn_train, model.rcnn_train = self.train
+        if self.device >= 0:
+            model.to_gpu(self.device)
+            self.x = cp.asarray(self.x)
+            self.assertIs(model.xp, cp)
+            self.assertIs(model.trunk.xp, cp)
+        st = time.time()
         ret = model(chainer.Variable(self.x, volatile=True), self.im_info)
+        print('Forward whole device:{}, ({}, train:{}): {} sec'.format(
+            self.device, self.trunk.__name__, self.train, time.time() - st))
         assert(len(ret) == 2)
         assert(isinstance(ret[0], chainer.Variable))
-        assert(isinstance(ret[1], np.ndarray))
+        assert(isinstance(ret[1], (cp.ndarray, np.ndarray)))
 
-    def test_backward_rpn_cpu_VGG16(self):
-        trunk = VGG16Prev
+    def test_backward_rpn(self):
         rpn_in_ch = 512
         rpn_out_ch = 512
         feat_stride = 16
@@ -57,15 +66,37 @@ class TestFasterRCNN(unittest.TestCase):
         anchor_scales = [8, 16, 32]
         num_classes = 21
         model = FasterRCNN(
-            trunk, rpn_in_ch, rpn_out_ch, feat_stride,
+            self.trunk, rpn_in_ch, rpn_out_ch, feat_stride,
             anchor_ratios, anchor_scales, num_classes)
-        model.rpn_train = True
-        model.rcnn_train = False
+        model.rpn_train, model.rcnn_train = self.train
+        if self.device >= 0:
+            model.to_gpu(self.device)
+            self.x = cp.asarray(self.x)
+            self.gt_boxes = cp.asarray(self.gt_boxes)
+            self.assertIs(model.xp, cp)
+            self.assertIs(model.trunk.xp, cp)
         opt = optimizers.Adam()
         opt.setup(model)
 
-        rpn_cls_loss, rpn_loss_bbox = model(self.x, self.im_info, self.gt_boxes)
-        model.zerograds()
-        rpn_cls_loss.backward()
-        rpn_loss_bbox.backward()
-        opt.update()
+        if model.rpn_train:
+            st = time.time()
+            rpn_cls_loss, rpn_loss_bbox = model(self.x, self.im_info, self.gt_boxes)
+            model.cleargrads()
+            rpn_cls_loss.backward()
+            rpn_loss_bbox.backward()
+            opt.update()
+            print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
+                self.device, self.trunk.__name__, self.train, time.time() - st))
+        elif model.rcnn_train:
+            st = time.time()
+            # loss_cls, loss_bbox = model(self.x, self.im_info, self.gt_boxes)
+            # model.cleargrads()
+            # loss_cls.backward()
+            # loss_bbox.backward()
+            # opt.update()
+            print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
+                self.device, self.trunk.__name__, self.train, time.time() - st))
+
+
+if __name__ == '__main__':
+    unittest.main()
