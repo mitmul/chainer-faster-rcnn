@@ -13,8 +13,11 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # --------------------------------------------------------
 
+import os
+
 import numpy as np
 
+from chainer import Variable
 from chainer import cuda
 from models.anchor_target_layer import AnchorTargetLayer
 from models.bbox_transform import bbox_transform
@@ -46,6 +49,8 @@ class ProposalTargetLayer(AnchorTargetLayer):
     ROIS_PER_IMAGE = 128
     FG_FRACTION = 0.25
 
+    type_check_enable = int(os.environ.get('CHAINER_TYPE_CHECK', '1')) != 0
+
     def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2),
                  anchor_scales=(8, 16, 32), num_classes=21):
         super(ProposalTargetLayer, self).__init__(
@@ -53,23 +58,36 @@ class ProposalTargetLayer(AnchorTargetLayer):
         self._num_classes = num_classes
         self._n_fg_rois = int(self.FG_FRACTION * self.ROIS_PER_IMAGE)
 
+    def _check_data_type_forward(self, proposals, gt_boxes):
+        assert proposals.ndim == 2
+        assert proposals.shape[1] == 4
+        assert proposals.dtype.kind == 'f'
+        assert isinstance(proposals, (np.ndarray, cuda.cupy.ndarray))
+
+        assert gt_boxes.ndim == 3
+        assert gt_boxes.shape[0] == 1
+        assert gt_boxes.shape[2] == 5
+        assert gt_boxes.dtype.kind == 'f'
+        assert isinstance(gt_boxes, Variable)
+
     def __call__(self, proposals, gt_boxes):
-        """It takes numpy or cupy arrays
+        """It assigns labels to proposals from RPN
 
         Args:
-            proposals (:class:`~numpy.ndarray`):
-                :math:`(n_proposals, 4)`-shaped array, each of which has
-                :math:`(x_0, y_0, x_1, y_1)` that represents each proposed RoI.
-                These proposals come from RegionProposalNetwork.
-            gt_boxes (:class:`~numpy.ndarray`):
-                A :math:`(n_gt_boxes, 4)`-shaped array, each of which is a
+            proposals (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
+                :math:`(n_proposals, 4)`-shaped array. These proposals come
+                from RegionProposalNetwork.
+            gt_boxes (:class:`~chainer.Variable`):
+                A :math:`(1, n_gt_boxes, 5)`-shaped array, each of which is a
                 4-dimensional vector that represents
                 :math:`(x1, y1, x2, y2, cls_id)` of each ground truth bbox.
                 The scale of them are at the input image scale.
         """
+        if self.type_check_enable:
+            self._check_data_type_forward(proposals, gt_boxes)
+
         xp = cuda.get_array_module(proposals)
-        proposals = cuda.to_cpu(proposals)
-        gt_boxes = cuda.to_cpu(gt_boxes)
+        gt_boxes = gt_boxes.data[0]
 
         argmax_overlaps_inds, max_overlaps, gt_argmax_overlaps_inds = \
             self._calc_overlaps(proposals, gt_boxes, np.arange(len(proposals)))

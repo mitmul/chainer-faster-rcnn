@@ -42,11 +42,9 @@ class VOC(chainercv.datasets.VOCDetectionDataset):
                         interpolation=cv.INTER_CUBIC)
         img = img.transpose(2, 0, 1).astype(np.float32)
         bbox *= im_scale
-        bbox = np.concatenate((bbox, label[:, None]), axis=1).astype(np.float32)
-
-        h, w = img.shape[1:]
-        im_info = [h, w, im_scale]
-        return img, im_info, bbox
+        bbox = np.concatenate(
+            (bbox, label[:, None]), axis=1).astype(np.float32)
+        return img, np.asarray(img.shape[1:]), bbox
 
 
 if __name__ == '__main__':

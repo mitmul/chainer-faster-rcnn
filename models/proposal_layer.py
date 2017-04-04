@@ -13,8 +13,11 @@
 # https://github.com/rbgirshick/py-faster-rcnn
 # -----------------------------------------------------------------------------
 
+import os
+
 import numpy as np
 
+from chainer import Variable
 from chainer import cuda
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
@@ -52,6 +55,8 @@ class ProposalLayer(object):
     TEST_RPN_POST_NMS_TOP_N = 300
     RPN_MIN_SIZE = 16
 
+    type_check_enable = int(os.environ.get('CHAINER_TYPE_CHECK', '1')) != 0
+
     def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2),
                  anchor_scales=(8, 16, 32)):
         self._feat_stride = feat_stride
@@ -77,24 +82,50 @@ class ProposalLayer(object):
             self._pre_nms_top_n = self.TEST_RPN_PRE_NMS_TOP_N
             self._post_nms_top_n = self.TEST_RPN_POST_NMS_TOP_N
 
+    def _check_data_type_forward(self, rpn_cls_prob, rpn_bbox_pred, img_info):
+        assert rpn_cls_prob.shape[0] == 1
+        assert rpn_cls_prob.shape[1] == 2 * self._num_anchors
+        assert rpn_cls_prob.ndim == 4
+        assert rpn_cls_prob.dtype.kind == 'f'
+        assert isinstance(rpn_cls_prob, Variable)
+
+        assert rpn_bbox_pred.shape[0] == 1
+        assert rpn_bbox_pred.shape[1] == 4 * self._num_anchors
+        assert rpn_bbox_pred.ndim == 4
+        assert rpn_bbox_pred.dtype.kind == 'f'
+        assert isinstance(rpn_bbox_pred, Variable)
+
+        assert img_info.shape == (1, 2)
+        assert img_info.dtype.kind == 'i'
+        assert isinstance(img_info, Variable)
+
     def __call__(self, rpn_cls_prob, rpn_bbox_pred, img_info):
         """It takes numpy or cupy arrays
 
         Args:
-            rpn_cls_prob (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
-                :math:`(2 * n_anchors, feat_h, feat_w)`-shaped array.
-            rpn_bbox_pred (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
-                :math:`(4 * n_anchors, feat_h, feat_w)`-shaped array.
-            img_info (list of integers): The input image size in
-                :math:`(img_h, img_w)`.
+            rpn_cls_prob (:class:`~chainer.Variable`):
+                :math:`(1, 2 * n_anchors, feat_h, feat_w)`-shaped array.
+            rpn_bbox_pred (:class:`~chainer.Variable`):
+                :math:`(1, 4 * n_anchors, feat_h, feat_w)`-shaped array.
+            img_info (:class:`~chainer.Variable`): The input image size
+                represented as a list of integers such as
+                :math:`(img_h, img_w)`. And the batchsize should be 1, so the
+                shape should be :math:`(1, 2)`.
 
         Returns:
-            proposals (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
+            proposals (:class:`~chainer.Variable`):
                 A set of proposal rectangles represented in
                 :math:`(x_min, x_max, y_min, y_max)`. The scale of values are
                 at the input image size given by `img_info` argument.
 
         """
+        if self.type_check_enable:
+            self._check_data_type_forward(rpn_cls_prob, rpn_bbox_pred, img_info)
+
+        # Currently it assumes that the batchsize is always 1
+        rpn_cls_prob = rpn_cls_prob.data[0]
+        rpn_bbox_pred = rpn_bbox_pred.data[0]
+        img_info = img_info.data[0]
         xp = cuda.get_array_module(rpn_cls_prob)
 
         # Generate all anchors whose scale is at the input image plane
@@ -122,9 +153,10 @@ class ProposalLayer(object):
         # Sort all (proposal, score) pairs by score from highest to lowest and
         # take top pre_nms_topN (e.g. 6000)
         order = fg_probs.ravel()
-        # TODO(mitmul): Use cupy version of argsort, when it becomes available
-        order = cuda.to_cpu(order).argsort()[::-1]
-        order = xp.asarray(order)
+        if isinstance(fg_probs, np.ndarray):
+            order = order.argsort()[::-1]
+        elif isinstance(fg_probs, cuda.cupy.ndarray):
+            order = xp.asarray(cuda.to_cpu(order).argsort()[::-1])
         if self._pre_nms_top_n > 0:
             order = order[:self._pre_nms_top_n]
         proposals = proposals[order]
@@ -143,10 +175,15 @@ class ProposalLayer(object):
             fg_probs = cuda.to_cpu(fg_probs)
             proposals = cuda.to_cpu(proposals)
             keep = gpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+            fg_probs = xp.asarray(fg_probs)
+            proposals = xp.asarray(proposals)
+            keep = xp.asarray(keep)
+
         if self._post_nms_top_n > 0:
             keep = keep[:self._post_nms_top_n]
-        proposals = xp.asarray(proposals[keep])
-        fg_probs = xp.asarray(fg_probs[keep])
+
+        proposals = proposals[keep]
+        fg_probs = fg_probs[keep]
 
         return proposals, fg_probs
 
@@ -164,9 +201,11 @@ class ProposalLayer(object):
         # Create all shifted anchors
         A = self._num_anchors
         K = len(shifts)  # number of lattice points = feat_h * feat_w
+
         # TODO(mitmul): When generate_anchors is available on GPU, remove this
         if cuda.get_array_module(self._anchors) is not xp:
             self._anchors = xp.asarray(self._anchors)
+
         anchors = self._anchors.reshape(1, A, 4) + shifts.reshape(K, 1, 4)
         anchors = anchors.reshape(K * A, 4)
         return anchors

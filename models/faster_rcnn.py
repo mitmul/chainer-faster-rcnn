@@ -1,23 +1,29 @@
 # Copyright (c) 2016 Shunta Saito
 
-import chainer
+import os
+
 import chainer.functions as F
 import chainer.links as L
+from chainer import Chain
+from chainer import Variable
+from chainer import initializers
 from chainer import reporter
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
-from models.region_proposal_network import RegionProposalNetwork
 from models.proposal_target_layer import ProposalTargetLayer
-from models.vgg16 import VGG16Prev
-from chainer import Variable
+from models.region_proposal_network import RegionProposalNetwork
+from models.vgg16 import VGG16
 
 
-class FasterRCNN(chainer.Chain):
+class FasterRCNN(Chain):
+
+    type_check_enable = int(os.environ.get('CHAINER_TYPE_CHECK', '1')) != 0
+
     def __init__(
-            self, trunk_class=VGG16Prev, rpn_in_ch=512, rpn_mid_ch=512,
+            self, trunk_class=VGG16, rpn_in_ch=512, rpn_mid_ch=512,
             feat_stride=16, anchor_ratios=(0.5, 1, 2),
             anchor_scales=(8, 16, 32), num_classes=21):
-        w = chainer.initializers.Normal(0.01)
+        w = initializers.Normal(0.01)
         super(FasterRCNN, self).__init__(
             trunk=trunk_class(),
             RPN=RegionProposalNetwork(
@@ -51,22 +57,52 @@ class FasterRCNN(chainer.Chain):
     def rpn_train(self, val):
         self.RPN.train = val
 
+    def _check_data_type_forward(self, x, img_info, gt_boxes):
+        assert x.shape[0] == 1
+        assert x.dtype.kind == 'f'
+        assert isinstance(x, Variable)
+
+        assert img_info.shape == (1, 2)
+        assert img_info.dtype.kind == 'i'
+        assert isinstance(img_info, Variable)
+
+        if gt_boxes is not None:
+            assert gt_boxes.shape[0] == 1
+            assert gt_boxes.shape[1] > 0
+            assert gt_boxes.shape[2] == 5
+            assert gt_boxes.dtype.kind == 'f'
+            assert isinstance(gt_boxes, Variable)
+
     def __call__(self, x, img_info, gt_boxes=None):
-        assert x.shape[0] == 1, \
-            'Batchsize should be 1 but was {}'.format(x.shape[0])
+        """Faster RCNN forward
 
-        xp = self.trunk.xp
-        feature_map = self.trunk(x)
+        Args:
+            x (:class:`~chainer.Variable`): The input image. Note that the
+                batchsize should be 1. So the shape should be
+                :math:`(1, n_channels, height, width)`.
+            img_info (:class:`~chainer.Variable`): The input image info. It
+                contains :math:`(height, width)` and the batchsize should be 1.
+                So the shape should be :math:`(1, 2)`.
+            gt_boxes (:class:`~chainer.Variable`): The ground truth bounding
+                boxes and its class label array. The shape should be
+                :math:`(1, n_gt_boxes, 5)` and the batchsize should be 1.
 
+        """
+        if self.type_check_enable:
+            self._check_data_type_forward(x, img_info, gt_boxes)
+
+        # Use the array module of the backend of trunk model
+        xp, feature_map = self.trunk.xp, self.trunk(x)
+
+        # RPN training mode
         if self.rpn_train and gt_boxes is not None:
             rpn_cls_loss, rpn_loss_bbox = self.RPN(
                 feature_map, img_info, gt_boxes)
+            # Register the loss values to reporter
             reporter.report({'rpn_cls_loss': rpn_cls_loss,
                              'rpn_loss_bbox': rpn_loss_bbox}, self)
+            # Return the loss
             return rpn_cls_loss, rpn_loss_bbox
-        elif self.rcnn_train and gt_boxes is not None:
-            proposals, probs, argmax_overlaps_inds = \
-                self.RPN(feature_map, img_info, gt_boxes)
         else:
             proposals, probs = self.RPN(feature_map, img_info, gt_boxes)
 
@@ -82,7 +118,6 @@ class FasterRCNN(chainer.Chain):
 
         # BBox predictions
         bbox_pred = self.bbox_pred(fc7)
-        bbox_deltas = bbox_pred.data
 
         if self.rcnn_train and gt_boxes is not None:
             # Create proposal target layer if not exsist
@@ -99,15 +134,15 @@ class FasterRCNN(chainer.Chain):
                 cls_score, use_gt_boxes[:, -1].astype(xp.int32))
 
             # Select predicted bbox transformations and calc loss
-            bbox_deltas = bbox_deltas[keep_inds]
-            loss_bbox = F.huber_loss(bbox_deltas, bbox_reg_targets, 1)
+            bbox_pred = bbox_pred[keep_inds]
+            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, 1)
             loss_bbox = F.sum(loss_bbox)
 
             reporter.report({'loss_bbox': loss_bbox,
                              'loss_cls': loss_cls}, self)
             return loss_cls, loss_bbox
 
-        pred_boxes = bbox_transform_inv(proposals, bbox_deltas)
-        pred_boxes = clip_boxes(pred_boxes, img_info)
+        pred_boxes = bbox_transform_inv(proposals, bbox_pred.data)
+        pred_boxes = clip_boxes(pred_boxes, img_info.data[0])
 
         return F.softmax(cls_score), pred_boxes

@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Copyright (c) 2016 Shunta Saito
+
 import argparse
 import imp
-import logging
 import os
 import shutil
-import sys
 import time
 
 import numpy as np

@@ -7,15 +7,19 @@ import time
 import unittest
 
 import numpy as np
-from chainer import computational_graph as cg
+
 import chainer
+import chainer.functions as F
 import cupy as cp
+from chainer import computational_graph as cg
+from chainer import Variable
 from chainer import optimizers
 from chainer import testing
+from chainer.dataset import concat_examples
+from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
 from models.vgg16 import VGG16
 from models.vgg16 import VGG16Prev
-from datasets.pascal_voc_dataset import VOC
 
 
 @testing.parameterize(*testing.product({
@@ -32,9 +36,9 @@ class TestFasterRCNN(unittest.TestCase):
         np.random.seed(0)
         dataset = VOC('train')
         img, im_info, bbox = dataset[1]
-        self.x = img[None, ...]
-        self.im_info = im_info
-        self.gt_boxes = bbox
+        self.x = Variable(img[None, ...])
+        self.im_info = Variable(im_info[None, ...])
+        self.gt_boxes = Variable(bbox[None, ...])
 
     def test_forward_whole(self):
         rpn_in_ch = 512
@@ -49,11 +53,12 @@ class TestFasterRCNN(unittest.TestCase):
         model.rpn_train, model.rcnn_train = self.train
         if self.device >= 0:
             model.to_gpu(self.device)
-            self.x = cp.asarray(self.x)
+            self.x.to_gpu(self.device)
+            self.x.volatile = True
             self.assertIs(model.xp, cp)
             self.assertIs(model.trunk.xp, cp)
         st = time.time()
-        ret = model(chainer.Variable(self.x, volatile=True), self.im_info)
+        ret = model(self.x, self.im_info)
         print('Forward whole device:{}, ({}, train:{}): {} sec'.format(
             self.device, self.trunk.__name__, self.train, time.time() - st))
         assert(len(ret) == 2)
@@ -73,8 +78,8 @@ class TestFasterRCNN(unittest.TestCase):
         model.rpn_train, model.rcnn_train = self.train
         if self.device >= 0:
             model.to_gpu(self.device)
-            self.x = cp.asarray(self.x)
-            self.gt_boxes = cp.asarray(self.gt_boxes)
+            self.x.to_gpu(self.device)
+            self.gt_boxes.to_gpu(self.device)
             self.assertIs(model.xp, cp)
             self.assertIs(model.trunk.xp, cp)
         opt = optimizers.Adam()
@@ -107,6 +112,14 @@ class TestFasterRCNN(unittest.TestCase):
             opt.update()
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
+
+            loss_cls_cg = cg.build_computational_graph(loss_cls)
+            with open('tests/loss_cls_cg.dot', 'w') as fp:
+                fp.write(loss_cls_cg.dump())
+
+            loss_bbox_cg = cg.build_computational_graph(loss_bbox)
+            with open('tests/loss_bbox_cg.dot', 'w') as fp:
+                fp.write(loss_bbox_cg.dump())
 
 
 if __name__ == '__main__':

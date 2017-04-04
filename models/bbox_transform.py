@@ -96,13 +96,13 @@ def _clip_boxes(boxes, im_shape):
     xp = cuda.get_array_module(boxes)
 
     # x1 >= 0
-    boxes[:, 0::4] = xp.maximum(xp.minimum(boxes[:, 0::4], im_shape[1] - 1), 0)
+    boxes[:, 0::4] = xp.maximum(xp.minimum(boxes[:, 0::4], int(im_shape[1] - 1)), 0)
     # y1 >= 0
-    boxes[:, 1::4] = xp.maximum(xp.minimum(boxes[:, 1::4], im_shape[0] - 1), 0)
+    boxes[:, 1::4] = xp.maximum(xp.minimum(boxes[:, 1::4], int(im_shape[0] - 1)), 0)
     # x2 < im_shape[1]
-    boxes[:, 2::4] = xp.maximum(xp.minimum(boxes[:, 2::4], im_shape[1] - 1), 0)
+    boxes[:, 2::4] = xp.maximum(xp.minimum(boxes[:, 2::4], int(im_shape[1] - 1)), 0)
     # y2 < im_shape[0]
-    boxes[:, 3::4] = xp.maximum(xp.minimum(boxes[:, 3::4], im_shape[0] - 1), 0)
+    boxes[:, 3::4] = xp.maximum(xp.minimum(boxes[:, 3::4], int(im_shape[0] - 1)), 0)
     return boxes
 
 

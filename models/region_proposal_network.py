@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import chainer
+import os
+
 import chainer.functions as F
 import chainer.links as L
+from chainer import Chain
+from chainer import Variable
 from chainer import cuda
+from chainer import initializers
+from chainer.utils import type_check
 from models.anchor_target_layer import AnchorTargetLayer
 from models.proposal_layer import ProposalLayer
 
 
-class RegionProposalNetwork(chainer.Chain):
+class RegionProposalNetwork(Chain):
 
     """Region Proposal Network
 
@@ -37,11 +42,13 @@ class RegionProposalNetwork(chainer.Chain):
 
     """
 
+    type_check_enable = int(os.environ.get('CHAINER_TYPE_CHECK', '1')) != 0
+
     def __init__(
             self, in_ch=512, mid_ch=512, feat_stride=16,
             anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32),
             num_classes=21):
-        w = chainer.initializers.Normal(0.01)
+        w = initializers.Normal(0.01)
         n_anchors = len(anchor_ratios) * len(anchor_scales)
         super(RegionProposalNetwork, self).__init__(
             rpn_conv_3x3=L.Convolution2D(in_ch, mid_ch, 3, 1, 1, initialW=w),
@@ -65,30 +72,51 @@ class RegionProposalNetwork(chainer.Chain):
         self._train = val
         self.proposal_layer.train = val
 
+    def _check_data_type_forward(self, x, img_info, gt_boxes):
+        assert x.shape[0] == 1
+        assert x.dtype.kind == 'f'
+        assert img_info.shape == (1, 2)
+        assert img_info.dtype.kind == 'i'
+        assert isinstance(x, Variable)
+        assert isinstance(img_info, Variable)
+        if gt_boxes is not None:
+            assert gt_boxes.shape[0] == 1
+            assert gt_boxes.shape[2] == 5
+            assert gt_boxes.dtype.kind == 'f'
+            assert isinstance(gt_boxes, Variable)
+
     def __call__(self, x, img_info, gt_boxes=None):
         """Calculate RoIs or losses and RoIs.
 
         Args:
-            x (:class:~`Variable`): Input feature maps. The shape should be
-                :math:`(1, C, feat_h, feat_w)`.
-            img_info (list of integers): The input image size in
-                :math:`(img_h, img_w)`.
-            gt_boxes (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
-                :math:`(n_boxes, x1, y1, x2, y2)`-shaped array. The scale is
-                at the input image scale.
+            x (:class:`~chainer.Variable`): Input feature maps. The shape
+                should be :math:`(1, n_feat_channels, feat_h, feat_w)`.
+            img_info (:class:`~chainer.Variable`): The input image size
+                represented as a list of integers such as
+                :math:`(img_h, img_w)`. And the batchsize should be 1, so the
+                shape should be :math:`(1, 2)`.
+            gt_boxes (:class:`~chainer.Variable` or None):
+                :math:`(1, n_gt_boxes, x1, y1, x2, y2)`-shaped 6-dimensional
+                array. The scale is at the input image scale. Default value is
+                `None`.
+
+        Returns:
+            If self.train and gt_boxes is not None:
+                rpn_cls_loss (:class:`~chainer.Variable`)
+                rpn_loss_bbox (:class:`~chainer.Variable`)
+            elif gt_boxes is not None:
+                proposals (:class:`~numpy.ndaarray` or :class:`~cupy.ndarray`)
+                probs (:class:`~numpy.ndaarray` or :class:`~cupy.ndarray`)
 
         """
-        assert x.shape[0] == 1, \
-            'Batchsize should be 1 but was {}'.format(x.shape[0])
+        if self.type_check_enable:
+            self._check_data_type_forward(x, img_info, gt_boxes)
 
+        # Network fowarding
         h = F.relu(self.rpn_conv_3x3(x))
         rpn_cls_score = self.rpn_cls_score(h)
         rpn_cls_prob = F.softmax(rpn_cls_score)
         rpn_bbox_pred = self.rpn_bbox_pred(h)
-
-        # TODO(mitmul): Currently CPU mode is way faster than GPU mode
-        rpn_cls_prob = cuda.to_cpu(rpn_cls_prob.data[0])
-        rpn_bbox_pred = cuda.to_cpu(rpn_bbox_pred.data[0])
 
         # Predicted RoI proposals
         proposals, probs = self.proposal_layer(
@@ -98,12 +126,13 @@ class RegionProposalNetwork(chainer.Chain):
         xp = self.rpn_conv_3x3.xp
         proposals = xp.asarray(proposals)
         probs = xp.asarray(probs)
-        rpn_bbox_pred = xp.asarray(rpn_bbox_pred)
 
         if gt_boxes is not None:
             # TODO(mitmul): Currently CPU mode is way faster than GPU mode
-            gt_boxes = cuda.to_cpu(gt_boxes)
-            bbox_labels, bbox_reg_targets, argmax_overlaps_inds = \
+            rpn_cls_prob.to_cpu()
+            gt_boxes.to_cpu()
+            img_info.to_cpu()
+            bbox_labels, bbox_reg_targets = \
                 self.anchor_target_layer(rpn_cls_prob, gt_boxes, img_info)
 
             # TODO(mitmul): Re-send to GPU
@@ -111,12 +140,13 @@ class RegionProposalNetwork(chainer.Chain):
             bbox_reg_targets = xp.asarray(bbox_reg_targets)
 
         if self.train and gt_boxes is not None:
+            # Reshape bbox_labels and rpn_cls_score
             n_anchors = self.proposal_layer._num_anchors
             feat_h, feat_w = x.shape[2], x.shape[3]
             bbox_labels = bbox_labels.reshape(1, n_anchors, feat_h, feat_w)
-
             rpn_cls_score = rpn_cls_score.reshape(
                 1, 2, n_anchors, feat_h, feat_w)
+
             rpn_cls_loss = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
             rpn_cls_loss = F.expand_dims(rpn_cls_loss, 0)
 
@@ -125,6 +155,5 @@ class RegionProposalNetwork(chainer.Chain):
             rpn_bbox_pred = F.expand_dims(F.flatten(rpn_bbox_pred), 0)
             rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
             return rpn_cls_loss, rpn_loss_bbox
-        elif gt_boxes is not None:
-            return proposals, probs, argmax_overlaps_inds
+
         return proposals, probs

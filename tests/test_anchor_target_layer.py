@@ -9,29 +9,34 @@ import cupy as cp
 import cv2 as cv
 from models.anchor_target_layer import AnchorTargetLayer
 from models.bbox_transform import keep_inside
+from chainer import Variable
 
 
 class TestAnchorTargetLayer(unittest.TestCase):
 
     def setUp(self):
-        self.x = np.arange(256 * 14 * 14, dtype=np.float32).reshape(256, 14, 14)
-        self.img_info = [224, 224]
-        self.anchor_target_layer = AnchorTargetLayer(16, [0.5, 1, 2], [8, 16, 32])
-        self.gt_boxes = np.array([
+        x = np.arange(2 * 9 * 14 * 14, dtype=np.float32)
+        self.x = Variable(x.reshape(1, 18, 14, 14))
+        self.img_info = Variable(np.array([[224, 224]], dtype=np.int32))
+        self.anchor_target_layer = AnchorTargetLayer(
+            16, [0.5, 1, 2], [8, 16, 32])
+        self.gt_boxes = Variable(np.array([[
             [10, 10, 60, 200, 0],
             [50, 100, 210, 210, 1],
             [160, 40, 200, 70, 2]
-        ])
+        ]], dtype=np.float32))
 
     def test_gt_boxes(self):
         gt_canvas = np.zeros((224, 224))
-        for gt in self.gt_boxes:
+        for gt in self.gt_boxes.data[0]:
             cv.rectangle(gt_canvas, (gt[0], gt[1]), (gt[2], gt[3]), 255)
         cv.imwrite('tests/gt_boxes.png', gt_canvas)
 
     def test_inside_anchors(self):
-        all_anchors = self.anchor_target_layer._generate_all_anchors(self.x)
-        inds_inside, all_inside_anchors = keep_inside(all_anchors, self.img_info)
+        all_anchors = self.anchor_target_layer._generate_all_anchors(
+            self.x.data[0])
+        inds_inside, all_inside_anchors = keep_inside(
+            all_anchors, self.img_info.data[0])
         anchor_canvas = np.zeros((224, 224))
         for anchor in all_inside_anchors:
             anchor = [int(a) for a in anchor]
@@ -43,20 +48,24 @@ class TestAnchorTargetLayer(unittest.TestCase):
         st = time.time()
         self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
         print('CPU:', time.time() - st, 'sec')
-        x = cp.asarray(self.x)
-        gt_boxes = cp.asarray(self.gt_boxes)
+        self.x.to_gpu(0)
+        self.gt_boxes.to_gpu(0)
+        self.img_info.to_gpu(0)
         st = time.time()
-        self.anchor_target_layer(x, gt_boxes, self.img_info)
+        self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
         print('GPU:', time.time() - st, 'sec')
 
     def test_labels(self):
-        bbox_labels, bbox_reg_targets = self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
-        all_anchors = self.anchor_target_layer._generate_all_anchors(self.x)
+        bbox_labels, bbox_reg_targets = \
+            self.anchor_target_layer(self.x, self.gt_boxes, self.img_info)
+        all_anchors = self.anchor_target_layer._generate_all_anchors(
+            self.x.data[0])
 
         self.assertEqual(len(bbox_labels), len(all_anchors))
         self.assertEqual(len(bbox_reg_targets), len(all_anchors))
 
-        inds_inside, all_inside_anchors = keep_inside(all_anchors, self.img_info)
+        inds_inside, all_inside_anchors = keep_inside(
+            all_anchors, self.img_info.data[0])
 
         neg_canvas = np.zeros((224, 224))
         pos_canvas = np.zeros((224, 224))
