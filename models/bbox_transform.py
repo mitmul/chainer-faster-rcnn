@@ -33,7 +33,8 @@ def bbox_transform(ex_rois, gt_rois):
     targets_dw = xp.log(gt_widths / ex_widths)
     targets_dh = xp.log(gt_heights / ex_heights)
 
-    targets = xp.vstack((targets_dx, targets_dy, targets_dw, targets_dh)).transpose()
+    targets = xp.vstack(
+        (targets_dx, targets_dy, targets_dw, targets_dh)).transpose()
     return targets
 
 

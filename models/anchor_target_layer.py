@@ -43,17 +43,19 @@ class AnchorTargetLayer(ProposalLayer):
     RPN_FG_FRACTION = 0.5
     RPN_BATCHSIZE = 256
 
-    def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32)):
-        super(AnchorTargetLayer, self).__init__(feat_stride, anchor_ratios, anchor_scales)
+    def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2),
+                 anchor_scales=(8, 16, 32)):
+        super(AnchorTargetLayer, self).__init__(
+            feat_stride, anchor_ratios, anchor_scales)
 
     def __call__(self, rpn_cls_prob, gt_boxes, img_info):
         """It takes numpy or cupy arrays
 
         Args:
-            rpn_cls_prob (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
+            rpn_cls_prob (:class:`~numpy.ndarray`):
                 :math:`(2 * n_anchors, feat_h, feat_w)`-shaped array.
-            gt_boxes (:class:`~numpy.ndarray` or :class:`~cupy.ndarray`):
-                :math:`(n_boxes, x1, y1, x2, y2)`-shaped array. The scale is
+            gt_boxes (:class:`~numpy.ndarray`): An array of
+                :math:`(x1, y1, x2, y2, cls_id)`. The scale is
                 at the input image scale.
             img_info (list of integers): The input image size in
                 :math:`(img_h, img_w)`.
@@ -61,22 +63,18 @@ class AnchorTargetLayer(ProposalLayer):
         xp = cuda.get_array_module(rpn_cls_prob)
 
         all_anchors = self._generate_all_anchors(rpn_cls_prob)
-
         inds_inside, all_inside_anchors = keep_inside(all_anchors, img_info)
-
-        argmax_overlaps_inds, bbox_labels = self._create_bbox_labels(inds_inside, all_inside_anchors, gt_boxes)
+        argmax_overlaps_inds, bbox_labels = \
+            self._create_bbox_labels(inds_inside, all_inside_anchors, gt_boxes)
 
         # Convert fixed anchors in (x, y, w, h) to (dx, dy, dw, dh)
-        # TODO(mitmul): Use CuPy's advanced indexing when it becomes available
-        gt_boxes = xp.asarray(cuda.to_cpu(gt_boxes)[cuda.to_cpu(argmax_overlaps_inds), :])
+        gt_boxes = gt_boxes[argmax_overlaps_inds]
         bbox_reg_targets = bbox_transform(all_inside_anchors, gt_boxes)
-
         bbox_labels_out = xp.ones((all_anchors.shape[0],), dtype=xp.int32) * -1
         bbox_labels_out[inds_inside] = bbox_labels
         bbox_reg_targets_out = xp.ones_like(all_anchors, dtype=xp.float32) * -1
         bbox_reg_targets_out[inds_inside, :] = bbox_reg_targets
-
-        return bbox_labels_out, bbox_reg_targets_out
+        return bbox_labels_out, bbox_reg_targets_out, argmax_overlaps_inds
 
     def _create_bbox_labels(self, inds_inside, anchors, gt_boxes):
         """Create bbox labels.
@@ -107,7 +105,7 @@ class AnchorTargetLayer(ProposalLayer):
         num_fg = int(self.RPN_FG_FRACTION * self.RPN_BATCHSIZE)
         fg_inds = xp.where(labels == 1)[0]
         if len(fg_inds) > num_fg:
-            # TODO(mitmul): Use CuPy whe cupy.random.choice becomes available
+            # TODO(mitmul): Use CuPy when cupy.random.choice becomes available
             fg_inds = cuda.to_cpu(fg_inds)
             disable_inds = np.random.choice(
                 fg_inds, size=(len(fg_inds) - num_fg), replace=False)
@@ -117,11 +115,12 @@ class AnchorTargetLayer(ProposalLayer):
         num_bg = self.RPN_BATCHSIZE - xp.sum(labels == 1)
         bg_inds = xp.where(labels == 0)[0]
         if len(bg_inds) > num_bg:
-            # TODO(mitmul): Use CuPy whe cupy.random.choice becomes available
+            # TODO(mitmul): Use CuPy when cupy.random.choice becomes available
             bg_inds = cuda.to_cpu(bg_inds)
             disable_inds = np.random.choice(
                 bg_inds, size=(len(bg_inds) - num_bg), replace=False)
             labels[disable_inds] = -1
+
         return argmax_overlaps_inds, labels
 
     def _calc_overlaps(self, anchors, gt_boxes, inds_inside):
@@ -134,15 +133,18 @@ class AnchorTargetLayer(ProposalLayer):
         gt_boxes = cuda.to_cpu(gt_boxes)
         overlaps = bbox_overlaps(
             np.ascontiguousarray(anchors, dtype=np.float),
-            np.ascontiguousarray(gt_boxes, dtype=np.float))
+            np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
 
         argmax_overlaps_inds = overlaps.argmax(axis=1)
-        # TODO(mitmul): When advanced indexing in CuPy becomes available, use xp.arange
-        max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps_inds]
         gt_argmax_overlaps_inds = overlaps.argmax(axis=0)
-        # TODO(mitmul): When advanced indexing in CuPy becomes available, use xp.arange
-        gt_max_overlaps = overlaps[gt_argmax_overlaps_inds, np.arange(overlaps.shape[1])]
-        # TODO(mitmul): When advanced indexing in CuPy becomes available, use xp.where
+
+        # TODO(mitmul): Use cupy.arange
+        max_overlaps = overlaps[
+            np.arange(len(inds_inside)), argmax_overlaps_inds]
+        # TODO(mitmul): Use cupy.arange
+        gt_max_overlaps = overlaps[
+            gt_argmax_overlaps_inds, np.arange(overlaps.shape[1])]
+        # TODO(mitmul): Use cupy.where
         gt_argmax_overlaps_inds = np.where(overlaps == gt_max_overlaps)[0]
 
         argmax_overlaps_inds = xp.asarray(argmax_overlaps_inds)

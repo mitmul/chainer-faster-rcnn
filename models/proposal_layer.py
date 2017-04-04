@@ -27,7 +27,10 @@ from models.gpu_nms import gpu_nms
 class ProposalLayer(object):
     """Generate proposal regions
 
-    Calculate object detection proposals by applying estimated bounding-box
+    Converts RPN outputs (per-anchor scores and bbox regression estimates) into
+    object proposals.
+
+    It calculates object detection proposals by applying estimated bounding-box
     transformations to a set of regular boxes (called "anchors"). All proposals
     are at the scale of the input image size given by `img_info` to the
     `__call__` method.
@@ -39,6 +42,7 @@ class ProposalLayer(object):
             pixels in the image plane. It depends on the trunk model
             architecture, e.g., 16 for conv5_3 of VGG16.
         anchor_scales (list of integers): A list of scales of anchor boxes.
+
     """
 
     RPN_NMS_THRESH = 0.7
@@ -48,9 +52,11 @@ class ProposalLayer(object):
     TEST_RPN_POST_NMS_TOP_N = 300
     RPN_MIN_SIZE = 16
 
-    def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32)):
+    def __init__(self, feat_stride=16, anchor_ratios=(0.5, 1, 2),
+                 anchor_scales=(8, 16, 32)):
         self._feat_stride = feat_stride
-        self._anchors = generate_anchors(ratios=anchor_ratios, scales=anchor_scales)
+        self._anchors = generate_anchors(
+            ratios=anchor_ratios, scales=anchor_scales)
         self._num_anchors = len(self._anchors)  # Typically 9
         self._nms_thresh = self.RPN_NMS_THRESH
         self._min_size = self.RPN_MIN_SIZE
@@ -136,8 +142,7 @@ class ProposalLayer(object):
             # implementation.
             fg_probs = cuda.to_cpu(fg_probs)
             proposals = cuda.to_cpu(proposals)
-            keep = gpu_nms(np.hstack((proposals, fg_probs)),
-                           self._nms_thresh)
+            keep = gpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
         if self._post_nms_top_n > 0:
             keep = keep[:self._post_nms_top_n]
         proposals = xp.asarray(proposals[keep])

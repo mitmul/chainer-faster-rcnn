@@ -7,7 +7,7 @@ import time
 import unittest
 
 import numpy as np
-
+from chainer import computational_graph as cg
 import chainer
 import cupy as cp
 from chainer import optimizers
@@ -21,7 +21,9 @@ from datasets.pascal_voc_dataset import VOC
 @testing.parameterize(*testing.product({
     'trunk': [VGG16Prev, VGG16],
     'train': [(True, False), (False, True), (False, False)],
+    # 'train': [(False, True)],
     'device': [-1, 0],
+    # 'device': [0],
 }))
 class TestFasterRCNN(unittest.TestCase):
 
@@ -29,7 +31,7 @@ class TestFasterRCNN(unittest.TestCase):
         chainer.set_debug(True)
         np.random.seed(0)
         dataset = VOC('train')
-        img, im_info, bbox = dataset[0]
+        img, im_info, bbox = dataset[1]
         self.x = img[None, ...]
         self.im_info = im_info
         self.gt_boxes = bbox
@@ -87,13 +89,22 @@ class TestFasterRCNN(unittest.TestCase):
             opt.update()
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
+
+            rpn_cls_cg = cg.build_computational_graph(rpn_cls_loss)
+            with open('tests/rpn_cls_cg.dot', 'w') as fp:
+                fp.write(rpn_cls_cg.dump())
+
+            rpn_bbox_cg = cg.build_computational_graph(rpn_loss_bbox)
+            with open('tests/rpn_bbox_cg.dot', 'w') as fp:
+                fp.write(rpn_bbox_cg.dump())
+
         elif model.rcnn_train:
             st = time.time()
-            # loss_cls, loss_bbox = model(self.x, self.im_info, self.gt_boxes)
-            # model.cleargrads()
-            # loss_cls.backward()
-            # loss_bbox.backward()
-            # opt.update()
+            loss_cls, loss_bbox = model(self.x, self.im_info, self.gt_boxes)
+            model.cleargrads()
+            loss_cls.backward()
+            loss_bbox.backward()
+            opt.update()
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
 

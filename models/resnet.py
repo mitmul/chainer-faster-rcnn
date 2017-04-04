@@ -4,7 +4,6 @@
 import shutil
 import os
 
-import chainer
 from chainer.dataset import download
 from chainer.links.model.vision import resnet
 
