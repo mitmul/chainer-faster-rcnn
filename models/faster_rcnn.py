@@ -9,6 +9,7 @@ from models.bbox_transform import clip_boxes
 from models.region_proposal_network import RegionProposalNetwork
 from models.proposal_target_layer import ProposalTargetLayer
 from models.vgg16 import VGG16Prev
+from chainer import Variable
 
 
 class FasterRCNN(chainer.Chain):
@@ -92,19 +93,21 @@ class FasterRCNN(chainer.Chain):
             use_gt_boxes, bbox_reg_targets, keep_inds = \
                 self.proposal_target_layer(proposals, gt_boxes)
 
-            # Create predicted scores and bbox deltas
+            # Select predicted scores and calc loss
             cls_score = cls_score[keep_inds]
-            bbox_deltas = bbox_deltas[keep_inds]
-
             loss_cls = F.softmax_cross_entropy(
                 cls_score, use_gt_boxes[:, -1].astype(xp.int32))
 
+            # Select predicted bbox transformations and calc loss
+            bbox_deltas = bbox_deltas[keep_inds]
             loss_bbox = F.huber_loss(bbox_deltas, bbox_reg_targets, 1)
+            loss_bbox = F.sum(loss_bbox)
+
             reporter.report({'loss_bbox': loss_bbox,
                              'loss_cls': loss_cls}, self)
             return loss_cls, loss_bbox
 
         pred_boxes = bbox_transform_inv(proposals, bbox_deltas)
         pred_boxes = clip_boxes(pred_boxes, img_info)
-        
+
         return F.softmax(cls_score), pred_boxes

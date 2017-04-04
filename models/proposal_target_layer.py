@@ -116,7 +116,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
             (len(keep_inds), 4 * self._num_classes), dtype=np.float32)
         object_inds = np.where(use_gt_boxes[:, -1] > 0)[0]
         for ind in object_inds:
-            cls_pos = 4 * use_gt_boxes[ind, -1]
+            cls_pos = int(4 * use_gt_boxes[ind, -1])
             ext_bbox_reg_targets[ind, cls_pos:cls_pos + 4] = bbox_reg_targets[ind]
 
         use_gt_boxes = xp.asarray(use_gt_boxes)
