@@ -129,11 +129,14 @@ class RegionProposalNetwork(Chain):
 
         if gt_boxes is not None:
             # TODO(mitmul): Currently CPU mode is way faster than GPU mode
-            rpn_cls_prob.to_cpu()
-            gt_boxes.to_cpu()
-            img_info.to_cpu()
+            if cuda.get_device(x.data).id >= 0:
+                rpn_cls_prob.to_cpu()
+                gt_boxes.to_cpu()
+                img_info.to_cpu()
             bbox_labels, bbox_reg_targets = \
                 self.anchor_target_layer(rpn_cls_prob, gt_boxes, img_info)
+            if cuda.get_device(x.data).id >= 0:
+                gt_boxes.to_gpu(cuda.get_device(x.data))
 
             # TODO(mitmul): Re-send to GPU
             bbox_labels = xp.asarray(bbox_labels)

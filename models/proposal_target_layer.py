@@ -101,6 +101,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
         n_fg_rois_per_image = min(self._n_fg_rois, fg_inds.size)
         # Sample foreground regions without replacement
         if fg_inds.size > 0:
+            fg_inds = cuda.to_cpu(fg_inds)
             fg_inds = np.random.choice(
                 fg_inds, size=n_fg_rois_per_image, replace=False)
 
@@ -112,6 +113,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
         n_bg_rois_per_image = min(n_bg_rois_per_image, bg_inds.size)
         # Sample background regions without replacement
         if bg_inds.size > 0:
+            bg_inds = cuda.to_cpu(bg_inds)
             bg_inds = np.random.choice(
                 bg_inds, size=n_bg_rois_per_image, replace=False)
 
@@ -124,7 +126,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
         # Select sampled values from proposals
         proposals = proposals[keep_inds]
 
-        use_gt_boxes = gt_boxes[argmax_overlaps_inds][keep_inds]
+        use_gt_boxes = gt_boxes[argmax_overlaps_inds[keep_inds]]
         bbox_reg_targets = bbox_transform(proposals, use_gt_boxes)
 
         # Convert bbox_reg_targets into class-wise form

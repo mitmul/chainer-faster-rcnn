@@ -92,7 +92,6 @@ class AnchorTargetLayer(ProposalLayer):
         rpn_cls_prob = rpn_cls_prob.data[0]
         gt_boxes = gt_boxes.data[0]
         img_info = img_info.data[0]
-        print(rpn_cls_prob.shape)
 
         all_anchors = self._generate_all_anchors(rpn_cls_prob)
         inds_inside, all_inside_anchors = keep_inside(all_anchors, img_info)
@@ -167,18 +166,16 @@ class AnchorTargetLayer(ProposalLayer):
         overlaps = bbox_overlaps(
             np.ascontiguousarray(anchors, dtype=np.float),
             np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
+        overlaps = xp.asarray(overlaps)
 
         argmax_overlaps_inds = overlaps.argmax(axis=1)
         gt_argmax_overlaps_inds = overlaps.argmax(axis=0)
 
-        # TODO(mitmul): Use cupy.arange
         max_overlaps = overlaps[
-            np.arange(len(inds_inside)), argmax_overlaps_inds]
-        # TODO(mitmul): Use cupy.arange
+            xp.arange(len(inds_inside)), argmax_overlaps_inds]
         gt_max_overlaps = overlaps[
-            gt_argmax_overlaps_inds, np.arange(overlaps.shape[1])]
-        # TODO(mitmul): Use cupy.where
-        gt_argmax_overlaps_inds = np.where(overlaps == gt_max_overlaps)[0]
+            gt_argmax_overlaps_inds, xp.arange(overlaps.shape[1])]
+        gt_argmax_overlaps_inds = xp.where(overlaps == gt_max_overlaps)[0]
 
         argmax_overlaps_inds = xp.asarray(argmax_overlaps_inds)
         max_overlaps = xp.asarray(max_overlaps)

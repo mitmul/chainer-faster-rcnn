@@ -9,13 +9,11 @@ import unittest
 import numpy as np
 
 import chainer
-import chainer.functions as F
 import cupy as cp
 from chainer import computational_graph as cg
 from chainer import Variable
 from chainer import optimizers
 from chainer import testing
-from chainer.dataset import concat_examples
 from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
 from models.vgg16 import VGG16
@@ -27,7 +25,7 @@ from models.vgg16 import VGG16Prev
     'train': [(True, False), (False, True), (False, False)],
     # 'train': [(False, True)],
     'device': [-1, 0],
-    # 'device': [0],
+    # 'device': [-1],
 }))
 class TestFasterRCNN(unittest.TestCase):
 
@@ -79,6 +77,7 @@ class TestFasterRCNN(unittest.TestCase):
         if self.device >= 0:
             model.to_gpu(self.device)
             self.x.to_gpu(self.device)
+            self.im_info.to_gpu(self.device)
             self.gt_boxes.to_gpu(self.device)
             self.assertIs(model.xp, cp)
             self.assertIs(model.trunk.xp, cp)
@@ -95,11 +94,11 @@ class TestFasterRCNN(unittest.TestCase):
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
 
-            rpn_cls_cg = cg.build_computational_graph(rpn_cls_loss)
+            rpn_cls_cg = cg.build_computational_graph([rpn_cls_loss])
             with open('tests/rpn_cls_cg.dot', 'w') as fp:
                 fp.write(rpn_cls_cg.dump())
 
-            rpn_bbox_cg = cg.build_computational_graph(rpn_loss_bbox)
+            rpn_bbox_cg = cg.build_computational_graph([rpn_loss_bbox])
             with open('tests/rpn_bbox_cg.dot', 'w') as fp:
                 fp.write(rpn_bbox_cg.dump())
 
@@ -113,11 +112,11 @@ class TestFasterRCNN(unittest.TestCase):
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
 
-            loss_cls_cg = cg.build_computational_graph(loss_cls)
+            loss_cls_cg = cg.build_computational_graph([loss_cls])
             with open('tests/loss_cls_cg.dot', 'w') as fp:
                 fp.write(loss_cls_cg.dump())
 
-            loss_bbox_cg = cg.build_computational_graph(loss_bbox)
+            loss_bbox_cg = cg.build_computational_graph([loss_bbox])
             with open('tests/loss_bbox_cg.dot', 'w') as fp:
                 fp.write(loss_bbox_cg.dump())
 
