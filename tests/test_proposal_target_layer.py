@@ -25,7 +25,7 @@ class TestProposalTargetLayer(unittest.TestCase):
         jitter = np.random.randint(-10, 10, size=(300, 4))
         ext_gt_boxes = gt_boxes[np.random.randint(3, size=300), :4]
         proposals = (ext_gt_boxes + jitter).astype(np.float32)
-        self.proposals = Variable(proposals)
+        self.proposals = proposals
         self.gt_boxes = Variable(gt_boxes[None, ...])
         self.proposal_target_layer = ProposalTargetLayer()
 
