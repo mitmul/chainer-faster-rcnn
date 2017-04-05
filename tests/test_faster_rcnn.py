@@ -86,39 +86,29 @@ class TestFasterRCNN(unittest.TestCase):
 
         if model.rpn_train:
             st = time.time()
-            rpn_cls_loss, rpn_loss_bbox = model(self.x, self.im_info, self.gt_boxes)
+            rpn_loss = model(self.x, self.im_info, self.gt_boxes)
             model.cleargrads()
-            rpn_cls_loss.backward()
-            rpn_loss_bbox.backward()
+            rpn_loss.backward()
             opt.update()
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
 
-            rpn_cls_cg = cg.build_computational_graph([rpn_cls_loss])
-            with open('tests/rpn_cls_cg.dot', 'w') as fp:
-                fp.write(rpn_cls_cg.dump())
-
-            rpn_bbox_cg = cg.build_computational_graph([rpn_loss_bbox])
-            with open('tests/rpn_bbox_cg.dot', 'w') as fp:
-                fp.write(rpn_bbox_cg.dump())
+            rpn_cg = cg.build_computational_graph([rpn_loss])
+            with open('tests/rpn_cg.dot', 'w') as fp:
+                fp.write(rpn_cg.dump())
 
         elif model.rcnn_train:
             st = time.time()
-            loss_cls, loss_bbox = model(self.x, self.im_info, self.gt_boxes)
+            loss_rcnn = model(self.x, self.im_info, self.gt_boxes)
             model.cleargrads()
-            loss_cls.backward()
-            loss_bbox.backward()
+            loss_rcnn.backward()
             opt.update()
             print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
 
-            loss_cls_cg = cg.build_computational_graph([loss_cls])
-            with open('tests/loss_cls_cg.dot', 'w') as fp:
-                fp.write(loss_cls_cg.dump())
-
-            loss_bbox_cg = cg.build_computational_graph([loss_bbox])
-            with open('tests/loss_bbox_cg.dot', 'w') as fp:
-                fp.write(loss_bbox_cg.dump())
+            loss_rcnn_cg = cg.build_computational_graph([loss_rcnn])
+            with open('tests/loss_rcnn_cg.dot', 'w') as fp:
+                fp.write(loss_rcnn_cg.dump())
 
 
 if __name__ == '__main__':

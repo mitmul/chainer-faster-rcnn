@@ -24,8 +24,8 @@ if __name__ == '__main__':
     valid_iter = iterators.SerialIterator(valid_dataset, batchsize, False, False)
 
     model = FasterRCNN()
-    model.rpn_train = True
-    model.rcnn_train = False
+    # model.rpn_train = True
+    model.rcnn_train = True
     model.to_gpu(0)
 
     optimizer = optimizers.Adam()
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     trainer.extend(extensions.LogReport(trigger=(1, 'iteration')))
     trainer.extend(extensions.PrintReport([
-        'epoch', 'iteration', 'main/rpn_cls_loss', 'main/rpn_loss_bbox', 'elapsed_time'
+        'epoch', 'iteration', 'main/rpn_loss', 'main/rcnn_loss', 'elapsed_time'
     ]))
 
     trainer.run()

@@ -38,7 +38,8 @@ class FasterRCNN(Chain):
         self._anchor_ratios = anchor_ratios
         self._anchor_scales = anchor_scales
         self._num_classes = num_classes
-        self._rcnn_train = True
+        self.RPN.train = False
+        self._rcnn_train = False
         self.spatial_scale = 1. / feat_stride
 
     @property
@@ -48,6 +49,8 @@ class FasterRCNN(Chain):
     @rcnn_train.setter
     def rcnn_train(self, val):
         self._rcnn_train = val
+        if val:
+            self.RPN.train = not val
 
     @property
     def rpn_train(self):
@@ -56,6 +59,8 @@ class FasterRCNN(Chain):
     @rpn_train.setter
     def rpn_train(self, val):
         self.RPN.train = val
+        if val:
+            self._rcnn_train = not val
 
     def _check_data_type_forward(self, x, img_info, gt_boxes):
         assert x.shape[0] == 1
@@ -96,13 +101,11 @@ class FasterRCNN(Chain):
 
         # RPN training mode
         if self.rpn_train and gt_boxes is not None:
-            rpn_cls_loss, rpn_loss_bbox = self.RPN(
-                feature_map, img_info, gt_boxes)
+            rpn_loss = self.RPN(feature_map, img_info, gt_boxes)
             # Register the loss values to reporter
-            reporter.report({'rpn_cls_loss': rpn_cls_loss,
-                             'rpn_loss_bbox': rpn_loss_bbox}, self)
+            reporter.report({'rpn_loss': rpn_loss}, self)
             # Return the loss
-            return rpn_cls_loss, rpn_loss_bbox
+            return rpn_loss
         else:
             proposals, probs = self.RPN(feature_map, img_info, gt_boxes)
 
@@ -136,11 +139,14 @@ class FasterRCNN(Chain):
             # Select predicted bbox transformations and calc loss
             bbox_pred = bbox_pred[keep_inds]
             loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, 1)
-            loss_bbox = F.sum(loss_bbox)
+            loss_bbox = F.sum(loss_bbox) / loss_bbox.size
 
-            reporter.report({'loss_bbox': loss_bbox,
-                             'loss_cls': loss_cls}, self)
-            return loss_cls, loss_bbox
+            loss_rcnn = loss_cls + loss_bbox
+            reporter.report({'loss_cls': loss_cls,
+                             'loss_bbox': loss_bbox,
+                             'loss_rcnn': loss_rcnn}, self)
+
+            return loss_rcnn
 
         pred_boxes = bbox_transform_inv(proposals, bbox_pred.data)
         pred_boxes = clip_boxes(pred_boxes, img_info.data[0])

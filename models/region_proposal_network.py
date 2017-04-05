@@ -9,7 +9,7 @@ from chainer import Chain
 from chainer import Variable
 from chainer import cuda
 from chainer import initializers
-from chainer.utils import type_check
+from chainer import reporter
 from models.anchor_target_layer import AnchorTargetLayer
 from models.proposal_layer import ProposalLayer
 
@@ -37,8 +37,8 @@ class RegionProposalNetwork(Chain):
             The size is in the scale of the input image plane for the trunk
             model.
         num_classes (int): The output dimension of class probability.
-        rpn_sigma (float): Used in calculation of smooth_l1_loss.
-        train (bool): If True, anchor target layer will be instantiated.
+        lambda (float): A balancing parameter betwee `rpn_cls_loss` and
+            `rpn_loss_bbox`
 
     """
 
@@ -47,7 +47,7 @@ class RegionProposalNetwork(Chain):
     def __init__(
             self, in_ch=512, mid_ch=512, feat_stride=16,
             anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32),
-            num_classes=21):
+            num_classes=21, loss_lambda=10.):
         w = initializers.Normal(0.01)
         n_anchors = len(anchor_ratios) * len(anchor_scales)
         super(RegionProposalNetwork, self).__init__(
@@ -61,6 +61,7 @@ class RegionProposalNetwork(Chain):
             feat_stride, anchor_ratios, anchor_scales)
         self.anchor_target_layer = AnchorTargetLayer(
             feat_stride, anchor_ratios, anchor_scales)
+        self._loss_lambda = loss_lambda
         self._train = True
 
     @property
@@ -150,13 +151,21 @@ class RegionProposalNetwork(Chain):
             rpn_cls_score = rpn_cls_score.reshape(
                 1, 2, n_anchors, feat_h, feat_w)
 
-            rpn_cls_loss = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
-            rpn_cls_loss = F.expand_dims(rpn_cls_loss, 0)
+            n_rpn_batchsize = self.anchor_target_layer.RPN_BATCHSIZE
+            rpn_loss_cls = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
+            rpn_loss_cls = F.expand_dims(rpn_loss_cls, 0)
+            rpn_loss_cls /= n_rpn_batchsize
 
             bbox_reg_targets = bbox_reg_targets.transpose(1, 0).ravel()
             bbox_reg_targets = bbox_reg_targets[None, :]
+            n_anchor_locs = rpn_bbox_pred.shape[2] * rpn_bbox_pred.shape[3]
             rpn_bbox_pred = F.expand_dims(F.flatten(rpn_bbox_pred), 0)
             rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
-            return rpn_cls_loss, rpn_loss_bbox
+            rpn_loss_bbox /= n_anchor_locs
+
+            reporter.report({'rpn_loss_cls': rpn_loss_cls,
+                             'rpn_loss_bbox': rpn_loss_bbox}, self)
+
+            return rpn_loss_cls + self._loss_lambda * rpn_loss_bbox
 
         return proposals, probs

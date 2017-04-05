@@ -104,6 +104,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
             fg_inds = cuda.to_cpu(fg_inds)
             fg_inds = np.random.choice(
                 fg_inds, size=n_fg_rois_per_image, replace=False)
+            fg_inds = xp.asarray(fg_inds)
 
         # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
         bg_inds = xp.where((max_overlaps < self.BG_THRESH_HI) &
@@ -116,9 +117,10 @@ class ProposalTargetLayer(AnchorTargetLayer):
             bg_inds = cuda.to_cpu(bg_inds)
             bg_inds = np.random.choice(
                 bg_inds, size=n_bg_rois_per_image, replace=False)
+            bg_inds = xp.asarray(bg_inds)
 
         # The indices that we're selecting (both fg and bg)
-        keep_inds = np.append(fg_inds, bg_inds)
+        keep_inds = xp.concatenate([fg_inds, bg_inds])
         # Select sampled values from cls_labels
         cls_labels = cls_labels[keep_inds]
         # Clamp labels for the background RoIs to 0
