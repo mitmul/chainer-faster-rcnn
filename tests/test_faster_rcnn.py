@@ -6,14 +6,14 @@
 import time
 import unittest
 
+import numpy as np
+
 import chainer
 import cupy as cp
-import numpy as np
 from chainer import computational_graph as cg
 from chainer import Variable
 from chainer import optimizers
 from chainer import testing
-
 from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
 from models.vgg16 import VGG16

@@ -4,11 +4,11 @@
 import time
 import unittest
 
-import cupy as cp
 import numpy as np
-from chainer import Variable
 
+import cupy as cp
 import cv2 as cv
+from chainer import Variable
 from models.anchor_target_layer import AnchorTargetLayer
 from models.bbox_transform import keep_inside
 

@@ -11,7 +11,6 @@ from chainer import iterators
 from chainer import optimizers
 from chainer import training
 from chainer.training import extensions
-
 from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
 

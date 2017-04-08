@@ -3,12 +3,12 @@
 
 import argparse
 
-import chainer
 import numpy as np
+
+import chainer
+import cv2 as cv
 from chainer import serializers
 from chainer.cuda import to_gpu
-
-import cv2 as cv
 from models.cpu_nms import cpu_nms as nms
 from models.faster_rcnn import FasterRCNN
 from models.vgg16 import VGG16Prev

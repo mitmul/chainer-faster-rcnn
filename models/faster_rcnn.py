@@ -6,9 +6,9 @@ import chainer.functions as F
 import chainer.links as L
 from chainer import Chain
 from chainer import Variable
+from chainer import cuda
 from chainer import initializers
 from chainer import reporter
-
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
 from models.proposal_target_layer import ProposalTargetLayer
@@ -126,6 +126,13 @@ class FasterRCNN(Chain):
                     self._anchor_scales, self._num_classes)
             use_gt_boxes, bbox_reg_targets, keep_inds = \
                 self.proposal_target_layer(proposals, gt_boxes)
+
+            # TODO(mitmul): Remove this re-sending below vars to GPU
+            xp = self.RPN.xp
+            if xp is cuda.cupy:
+                use_gt_boxes = xp.asarray(use_gt_boxes)
+                bbox_reg_targets = xp.asarray(bbox_reg_targets)
+                keep_inds = xp.asarray(keep_inds)
 
             # Select predicted scores and calc loss
             cls_score = cls_score[keep_inds]

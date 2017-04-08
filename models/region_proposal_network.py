@@ -10,7 +10,6 @@ from chainer import Variable
 from chainer import cuda
 from chainer import initializers
 from chainer import reporter
-
 from models.anchor_target_layer import AnchorTargetLayer
 from models.proposal_layer import ProposalLayer
 
@@ -124,17 +123,12 @@ class RegionProposalNetwork(Chain):
         proposals, probs = self.proposal_layer(
             rpn_cls_prob, rpn_bbox_pred, img_info)
 
-        # TODO(mitmul): Re-send to GPU
+        # TODO(mitmul): Remove this re-sending below vars to GPU
         xp = self.rpn_conv_3x3.xp
         proposals = xp.asarray(proposals)
         probs = xp.asarray(probs)
 
         if gt_boxes is not None:
-            # TODO(mitmul): Currently CPU mode is way faster than GPU mode
-            if cuda.get_device(x.data).id >= 0:
-                rpn_cls_prob.to_cpu()
-                gt_boxes.to_cpu()
-                img_info.to_cpu()
             bbox_labels, bbox_reg_targets = \
                 self.anchor_target_layer(rpn_cls_prob, gt_boxes, img_info)
             if cuda.get_device(x.data).id >= 0:

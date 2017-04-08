@@ -9,9 +9,10 @@ import os
 import shutil
 import time
 
+import numpy as np
+
 import chainer
 import chainer.links as L
-import numpy as np
 from chainer import optimizers
 
 
