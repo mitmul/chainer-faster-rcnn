@@ -90,7 +90,8 @@ if __name__ == '__main__':
     if args.gpu >= 0:
         img = to_gpu(img, device=args.gpu)
     img = chainer.Variable(img, volatile=True)
-    cls_score, bbox_pred = model(img, img.data.shape[2:])
+    img_info = chainer.Variable(np.array([[img.shape[2], img.shape[2]]]))
+    cls_score, bbox_pred = model(img, img_info)
     cls_score = cls_score.data
 
     if args.gpu >= 0:

@@ -68,12 +68,18 @@ ext_modules = [
     Extension(
         "models/bbox",
         ["models/bbox.pyx"],
-        include_dirs=[numpy_include]
+        include_dirs=[numpy_include],
+        extra_compile_args={
+            'gcc': ["-Wno-unused-function"]
+        }
     ),
     Extension(
         "models/cpu_nms",
         ["models/cpu_nms.pyx"],
-        include_dirs=[numpy_include]
+        include_dirs=[numpy_include],
+        extra_compile_args={
+            'gcc': ["-Wno-unused-function"]
+        }
     ),
     Extension(
         'models/gpu_nms',

@@ -4,6 +4,7 @@
 .sync-config.cson
 data
 docker/caffe
+models/gpu_nms.cpp
 
 *__pycache__*
 *.pyc

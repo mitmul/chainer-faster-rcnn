@@ -46,7 +46,7 @@ cd ..
 
 ```
 if [ ! -d data ]; then mkdir data; fi
-curl https://dl.dropboxusercontent.com/u/2498135/faster-rcnn/VGG16_faster_rcnn_final.model -o data/VGG16_faster_rcnn_final.model
+curl https://dl.dropboxusercontent.com/u/2498135/faster-rcnn/VGG16_faster_rcnn_final.model?dl=1 -o data/VGG16_faster_rcnn_final.model
 ```
 
 **NOTE:** The model definition in `faster_rcnn.py` has been changed, so if you already have the older pre-trained model file, please download it again to replace the older one with the new one.
@@ -54,7 +54,7 @@ curl https://dl.dropboxusercontent.com/u/2498135/faster-rcnn/VGG16_faster_rcnn_f
 ### 2\. Use forward.py
 
 ```
-curl http://vision.cs.utexas.edu/voc/VOC2007_test/JPEGImages/004545.jpg -o 004545.jpg
+curl -O http://vision.cs.utexas.edu/voc/VOC2007_test/JPEGImages/004545.jpg
 python forward.py --img_fn 004545.jpg --gpu 0
 ```
 
