@@ -174,7 +174,8 @@ class ProposalLayer(object):
             # implementation.
             fg_probs = cuda.to_cpu(fg_probs)
             proposals = cuda.to_cpu(proposals)
-            keep = gpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+            if fg_probs.size > 0 and proposals.size > 0:
+                keep = gpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
             fg_probs = xp.asarray(fg_probs)
             proposals = xp.asarray(proposals)
             keep = xp.asarray(keep)

@@ -23,16 +23,16 @@ if __name__ == '__main__':
 
     train_iter = iterators.SerialIterator(train_dataset, batchsize)
     model = FasterRCNN()
-    # model.rpn_train = True
-    model.rcnn_train = True
+    model.rpn_train = True
+    # model.rcnn_train = True
     model.to_gpu(0)
 
     optimizer = optimizers.Adam()
     optimizer.setup(model)
 
     updater = training.StandardUpdater(train_iter, optimizer, device=0)
-    trainer = training.Trainer(updater, (2, 'iteration'), out='tests/train_test')
-    trainer.extend(extensions.LogReport(trigger=(1, 'iteration')))
+    trainer = training.Trainer(updater, (100, 'epoch'), out='tests/train_test')
+    trainer.extend(extensions.LogReport(trigger=(10, 'iteration')))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration',
         'main/RPN/rpn_loss',
@@ -42,6 +42,6 @@ if __name__ == '__main__':
         'main/loss_bbox',
         'main/loss_rcnn',
         'elapsed_time',
-    ]), trigger=(1, 'iteration'))
+    ]), trigger=(10, 'iteration'))
 
     trainer.run()

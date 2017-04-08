@@ -144,13 +144,15 @@ class AnchorTargetLayer(ProposalLayer):
             labels[disable_inds] = -1
 
         # subsample negative labels if we have too many
-        num_bg = self.RPN_BATCHSIZE - xp.sum(labels == 1)
+        # num_bg = self.RPN_BATCHSIZE - xp.sum(labels == 1)
+        fg_inds = xp.where(labels == 1)[0]
         bg_inds = xp.where(labels == 0)[0]
-        if len(bg_inds) > num_bg:
+        if len(bg_inds) > num_fg:
             # TODO(mitmul): Use CuPy when cupy.random.choice becomes available
             bg_inds = cuda.to_cpu(bg_inds)
             disable_inds = np.random.choice(
-                bg_inds, size=(len(bg_inds) - num_bg), replace=False)
+                bg_inds, size=len(bg_inds) - len(fg_inds), replace=False)
+                # bg_inds, size=(len(bg_inds) - num_bg), replace=False)
             labels[disable_inds] = -1
 
         return argmax_overlaps_inds, labels
