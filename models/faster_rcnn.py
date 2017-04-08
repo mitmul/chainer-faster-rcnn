@@ -17,7 +17,6 @@ from models.vgg16 import VGG16
 
 
 class FasterRCNN(Chain):
-
     type_check_enable = int(os.environ.get('CHAINER_TYPE_CHECK', '1')) != 0
 
     def __init__(
@@ -132,13 +131,19 @@ class FasterRCNN(Chain):
             cls_score = cls_score[keep_inds]
             loss_cls = F.softmax_cross_entropy(
                 cls_score, use_gt_boxes[:, -1].astype(xp.int32))
+            loss_cls = loss_cls.reshape(())
 
             # Select predicted bbox transformations and calc loss
             bbox_pred = bbox_pred[keep_inds]
             loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, 1)
             loss_bbox = F.sum(loss_bbox) / loss_bbox.size
+            loss_bbox = loss_bbox.reshape(())
 
             loss_rcnn = loss_cls + loss_bbox
+
+            reporter.report({'loss_cls': loss_cls,
+                             'loss_bbox': loss_bbox,
+                             'loss_rcnn': loss_rcnn}, self)
 
             return loss_rcnn
 

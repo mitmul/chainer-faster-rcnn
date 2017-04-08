@@ -23,8 +23,8 @@ if __name__ == '__main__':
 
     train_iter = iterators.SerialIterator(train_dataset, batchsize)
     model = FasterRCNN()
-    model.rpn_train = True
-    # model.rcnn_train = Trueq
+    # model.rpn_train = True
+    model.rcnn_train = True
     model.to_gpu(0)
 
     optimizer = optimizers.Adam()
@@ -38,9 +38,10 @@ if __name__ == '__main__':
         'main/RPN/rpn_loss',
         'main/RPN/rpn_loss_cls',
         'main/RPN/rpn_loss_bbox',
+        'main/loss_cls',
+        'main/loss_bbox',
+        'main/loss_rcnn',
         'elapsed_time',
     ]), trigger=(1, 'iteration'))
 
     trainer.run()
-
-    print(trainer)

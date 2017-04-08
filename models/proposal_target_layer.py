@@ -120,7 +120,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
             bg_inds = xp.asarray(bg_inds)
 
         # The indices that we're selecting (both fg and bg)
-        keep_inds = xp.concatenate([fg_inds, bg_inds])
+        keep_inds = xp.concatenate([fg_inds, bg_inds]).astype(xp.int32)
         # Select sampled values from cls_labels
         cls_labels = cls_labels[keep_inds]
         # Clamp labels for the background RoIs to 0

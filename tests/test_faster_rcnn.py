@@ -23,9 +23,7 @@ from models.vgg16 import VGG16Prev
 @testing.parameterize(*testing.product({
     'trunk': [VGG16Prev, VGG16],
     'train': [(True, False), (False, True), (False, False)],
-    # 'train': [(False, True)],
-    'device': [-1, 0],
-    # 'device': [-1],
+    'device': [0],
 }))
 class TestFasterRCNN(unittest.TestCase):
 
@@ -63,7 +61,7 @@ class TestFasterRCNN(unittest.TestCase):
         assert(isinstance(ret[0], chainer.Variable))
         assert(isinstance(ret[1], (cp.ndarray, np.ndarray)))
 
-    def test_backward_rpn(self):
+    def test_backward(self):
         rpn_in_ch = 512
         rpn_out_ch = 512
         feat_stride = 16
@@ -103,7 +101,7 @@ class TestFasterRCNN(unittest.TestCase):
             model.cleargrads()
             loss_rcnn.backward()
             opt.update()
-            print('Backward rpn device:{}, ({}, train:{}): {} sec'.format(
+            print('Backward rcnn device:{}, ({}, train:{}): {} sec'.format(
                 self.device, self.trunk.__name__, self.train, time.time() - st))
 
             loss_rcnn_cg = cg.build_computational_graph([loss_rcnn])
