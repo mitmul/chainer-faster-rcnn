@@ -4,10 +4,10 @@
 import time
 import unittest
 
-import numpy as np
-
 import chainer
+import numpy as np
 from chainer import Variable
+
 from models.proposal_layer import ProposalLayer
 
 

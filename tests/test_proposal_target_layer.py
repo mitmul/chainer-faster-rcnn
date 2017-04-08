@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
 import unittest
 
-import time
-import numpy as np
 import cupy as cp
+import numpy as np
+from chainer import Variable
+
 import cv2 as cv
+from models.bbox_transform import keep_inside
 from models.proposal_target_layer import ProposalTargetLayer
 from models.region_proposal_network import RegionProposalNetwork
-from models.bbox_transform import keep_inside
-from chainer import Variable
 
 
 class TestProposalTargetLayer(unittest.TestCase):

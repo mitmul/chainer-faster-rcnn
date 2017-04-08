@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import unittest
+
 import numpy as np
 from PIL import Image
 from PIL import ImageDraw
-import unittest
+
 from models.generate_anchors import generate_anchors
 
 

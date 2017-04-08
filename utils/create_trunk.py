@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import caffe
 from chainer import Variable
 from chainer import serializers
+
+import caffe
 from lib.models.vgg16 import VGG16
 
 if __name__ == '__main__':

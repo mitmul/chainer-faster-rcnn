@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
 import unittest
 
-import time
-import numpy as np
 import cupy as cp
+import numpy as np
+from chainer import Variable
+
 import cv2 as cv
 from models.anchor_target_layer import AnchorTargetLayer
 from models.bbox_transform import keep_inside
-from chainer import Variable
 
 
 class TestAnchorTargetLayer(unittest.TestCase):

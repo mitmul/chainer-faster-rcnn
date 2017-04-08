@@ -19,4 +19,4 @@ models/gpu_nms.cpp
 *.png
 
 faster_rcnn_models
-lib/build
+lib/

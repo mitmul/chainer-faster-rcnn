@@ -16,9 +16,9 @@
 import os
 
 import numpy as np
-
 from chainer import Variable
 from chainer import cuda
+
 from models.anchor_target_layer import AnchorTargetLayer
 from models.bbox_transform import bbox_transform
 

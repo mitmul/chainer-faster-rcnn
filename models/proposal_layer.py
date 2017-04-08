@@ -16,9 +16,9 @@
 import os
 
 import numpy as np
-
 from chainer import Variable
 from chainer import cuda
+
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
 from models.bbox_transform import filter_boxes

@@ -8,6 +8,7 @@ from chainer import Chain
 from chainer import Variable
 from chainer import initializers
 from chainer import reporter
+
 from models.bbox_transform import bbox_transform_inv
 from models.bbox_transform import clip_boxes
 from models.proposal_target_layer import ProposalTargetLayer
@@ -101,11 +102,7 @@ class FasterRCNN(Chain):
 
         # RPN training mode
         if self.rpn_train and gt_boxes is not None:
-            rpn_loss = self.RPN(feature_map, img_info, gt_boxes)
-            # Register the loss values to reporter
-            reporter.report({'rpn_loss': rpn_loss}, self)
-            # Return the loss
-            return rpn_loss
+            return self.RPN(feature_map, img_info, gt_boxes)
         else:
             proposals, probs = self.RPN(feature_map, img_info, gt_boxes)
 

@@ -11,6 +11,7 @@ import json
 from chainer import iterators
 from chainer import training
 from chainer.training import extensions
+
 from lib.datasets.voc.dataset import VOC
 from updater import ParallelUpdater
 from utils.prepare_train import create_args

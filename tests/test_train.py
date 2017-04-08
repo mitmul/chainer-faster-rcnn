@@ -11,6 +11,7 @@ from chainer import iterators
 from chainer import optimizers
 from chainer import training
 from chainer.training import extensions
+
 from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
 
@@ -21,28 +22,25 @@ if __name__ == '__main__':
     valid_dataset = VOC('val')
 
     train_iter = iterators.SerialIterator(train_dataset, batchsize)
-    valid_iter = iterators.SerialIterator(valid_dataset, batchsize, False, False)
-
     model = FasterRCNN()
     model.rpn_train = True
-    # model.rcnn_train = True
+    # model.rcnn_train = Trueq
     model.to_gpu(0)
 
     optimizer = optimizers.Adam()
     optimizer.setup(model)
 
     updater = training.StandardUpdater(train_iter, optimizer, device=0)
-    trainer = training.Trainer(updater, (1, 'iteration'), out='tests/train_test')
+    trainer = training.Trainer(updater, (2, 'iteration'), out='tests/train_test')
     trainer.extend(extensions.LogReport(trigger=(1, 'iteration')))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration',
         'main/RPN/rpn_loss',
         'main/RPN/rpn_loss_cls',
         'main/RPN/rpn_loss_bbox',
-        'elapsed_time'
-    ]))
+        'elapsed_time',
+    ]), trigger=(1, 'iteration'))
 
     trainer.run()
 
-    for key, val in trainer.reporter.observation.items():
-        print(key, val)
+    print(trainer)

@@ -10,6 +10,7 @@ from chainer import Variable
 from chainer import cuda
 from chainer import initializers
 from chainer import reporter
+
 from models.anchor_target_layer import AnchorTargetLayer
 from models.proposal_layer import ProposalLayer
 
@@ -155,6 +156,7 @@ class RegionProposalNetwork(Chain):
             rpn_loss_cls = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
             rpn_loss_cls = F.expand_dims(rpn_loss_cls, 0)
             rpn_loss_cls /= n_rpn_batchsize
+            rpn_loss_cls = rpn_loss_cls.reshape(())
 
             bbox_reg_targets = bbox_reg_targets.transpose(1, 0).ravel()
             bbox_reg_targets = bbox_reg_targets[None, :]
@@ -162,10 +164,14 @@ class RegionProposalNetwork(Chain):
             rpn_bbox_pred = F.expand_dims(F.flatten(rpn_bbox_pred), 0)
             rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
             rpn_loss_bbox /= n_anchor_locs
+            rpn_loss_bbox = rpn_loss_bbox.reshape(())
+
+            rpn_loss = rpn_loss_cls + self._loss_lambda * rpn_loss_bbox
 
             reporter.report({'rpn_loss_cls': rpn_loss_cls,
-                             'rpn_loss_bbox': rpn_loss_bbox}, self)
+                             'rpn_loss_bbox': rpn_loss_bbox,
+                             'rpn_loss': rpn_loss}, self)
 
-            return rpn_loss_cls + self._loss_lambda * rpn_loss_bbox
+            return rpn_loss
 
         return proposals, probs

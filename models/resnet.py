@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import shutil
 import os
+import shutil
 
 from chainer.dataset import download
 from chainer.links.model.vision import resnet

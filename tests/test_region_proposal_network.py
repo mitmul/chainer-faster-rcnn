@@ -5,9 +5,9 @@ import time
 import unittest
 
 import numpy as np
-
 from chainer import Variable
 from chainer.cuda import cupy as cp
+
 from models.region_proposal_network import RegionProposalNetwork
 
 

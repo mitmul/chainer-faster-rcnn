@@ -16,13 +16,13 @@
 import os
 
 import numpy as np
-
+from chainer import Variable
 from chainer import cuda
+
 from models.bbox import bbox_overlaps
 from models.bbox_transform import bbox_transform
 from models.bbox_transform import keep_inside
 from models.proposal_layer import ProposalLayer
-from chainer import Variable
 
 
 class AnchorTargetLayer(ProposalLayer):

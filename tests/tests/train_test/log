@@ -1,0 +1,18 @@
+[
+    {
+        "main/RPN/rpn_loss_cls": 0.002743013668805361,
+        "main/RPN/rpn_loss_bbox": 19.95600700378418,
+        "main/RPN/rpn_loss": 199.5628204345703,
+        "epoch": 0,
+        "iteration": 1,
+        "elapsed_time": 2.8707520961761475
+    },
+    {
+        "main/RPN/rpn_loss_cls": 0.00196157768368721,
+        "main/RPN/rpn_loss_bbox": 10.919742584228516,
+        "main/RPN/rpn_loss": 109.19938659667969,
+        "epoch": 0,
+        "iteration": 2,
+        "elapsed_time": 3.5247042179107666
+    }
+]
