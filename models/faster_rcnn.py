@@ -142,9 +142,6 @@ class FasterRCNN(Chain):
             loss_bbox = F.sum(loss_bbox) / loss_bbox.size
 
             loss_rcnn = loss_cls + loss_bbox
-            reporter.report({'loss_cls': loss_cls,
-                             'loss_bbox': loss_bbox,
-                             'loss_rcnn': loss_rcnn}, self)
 
             return loss_rcnn
 
