@@ -136,7 +136,7 @@ class ProposalLayer(object):
         bbox_trans = rpn_bbox_pred.transpose(1, 2, 0).reshape(-1, 4)
 
         # Apply the transformation to the base anchors
-        proposals = bbox_transform_inv(all_anchors, bbox_trans, -1)
+        proposals = bbox_transform_inv(all_anchors, bbox_trans)
 
         # Clip predicted boxes to image
         proposals = clip_boxes(proposals, img_info)
@@ -174,8 +174,10 @@ class ProposalLayer(object):
             keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
         else:
             # TODO(mitmul): Improve gpu_nms to take GPU array directly
-            dets = xp.hstack((proposals, fg_probs))
-            keep = gpu_nms(cuda.to_cpu(dets.astype(np.float32)), self._nms_thresh)
+            assert len(proposals) > 0
+            assert len(fg_probs) > 0
+            dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(np.float32)
+            keep = gpu_nms(dets, self._nms_thresh)
             keep = xp.asarray(keep)
 
         if self._post_nms_top_n > 0:

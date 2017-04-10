@@ -48,7 +48,7 @@ class RegionProposalNetwork(Chain):
             self, in_ch=512, mid_ch=512, feat_stride=16,
             anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32),
             num_classes=21, loss_lambda=10.):
-        w = initializers.Normal(0.01)
+        w = initializers.Uniform(0.001)
         n_anchors = len(anchor_ratios) * len(anchor_scales)
         super(RegionProposalNetwork, self).__init__(
             rpn_conv_3x3=L.Convolution2D(in_ch, mid_ch, 3, 1, 1, initialW=w),

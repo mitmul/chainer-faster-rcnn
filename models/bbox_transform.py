@@ -38,9 +38,10 @@ def bbox_transform(ex_rois, gt_rois):
     return targets
 
 
-def bbox_transform_inv(boxes, trans, gpu=-1):
-    if gpu >= 0:
-        with cuda.Device(gpu):
+def bbox_transform_inv(boxes, trans):
+    xp = cuda.get_array_module(boxes)
+    if isinstance(xp, cuda.cupy.ndarray):
+        with cuda.get_device(boxes):
             return _bbox_transform_inv(boxes, trans)
     else:
         return _bbox_transform_inv(boxes, trans)

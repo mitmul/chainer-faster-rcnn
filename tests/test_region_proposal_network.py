@@ -28,7 +28,7 @@ class TestRegionProposalNetwork(unittest.TestCase):
 
     def test_gpu(self):
         x = Variable(cp.zeros(
-            (1, 512, self.feat_h, self.feat_w), dtype=np.float32))
+            (1, 512, self.feat_h, self.feat_w), dtype=cp.float32))
         self.rpn.train = False
         self.rpn.to_gpu(0)
         st = time.time()

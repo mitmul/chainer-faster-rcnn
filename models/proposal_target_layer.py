@@ -86,40 +86,44 @@ class ProposalTargetLayer(AnchorTargetLayer):
         if self.type_check_enable:
             self._check_data_type_forward(proposals, gt_boxes)
 
+        xp = cuda.get_array_module(proposals)
+
         gt_boxes = gt_boxes.data[0]
 
-        if cuda.get_array_module(proposals) is cuda.cupy:
-            proposals = cuda.to_cpu(proposals)
-            gt_boxes = cuda.to_cpu(gt_boxes)
-
         argmax_overlaps_inds, max_overlaps, gt_argmax_overlaps_inds = \
-            self._calc_overlaps(proposals, gt_boxes, np.arange(len(proposals)))
+            self._calc_overlaps(proposals, gt_boxes, xp.arange(len(proposals)))
 
         # Select target candidate class labels
         cls_labels = gt_boxes[argmax_overlaps_inds, 4]
 
         # Select foreground RoIs as those with >= FG_THRESH overlap with any GT
-        fg_inds = np.where(max_overlaps >= self.FG_THRESH)[0]
+        fg_inds = xp.where(max_overlaps >= self.FG_THRESH)[0]
         # Guard against when an image has more than n_fg_rois foreground RoIs
         n_fg_rois_per_image = min(self._n_fg_rois, fg_inds.size)
         # Sample foreground regions without replacement
         if fg_inds.size > 0:
+            # TODO(mitmul): Remove this when cupy.random.choice becomes available
+            fg_inds = cuda.to_cpu(fg_inds)
             fg_inds = np.random.choice(
                 fg_inds, size=n_fg_rois_per_image, replace=False)
+            fg_inds = xp.asarray(fg_inds)
 
         # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
-        bg_inds = np.where((max_overlaps < self.BG_THRESH_HI) &
+        bg_inds = xp.where((max_overlaps < self.BG_THRESH_HI) &
                            (max_overlaps >= self.BG_THRESH_LO))[0]
         # Guard against there being more than desired
         n_bg_rois_per_image = self.ROIS_PER_IMAGE - n_fg_rois_per_image
         n_bg_rois_per_image = min(n_bg_rois_per_image, bg_inds.size)
         # Sample background regions without replacement
         if bg_inds.size > 0:
+            # TODO(mitmul): Remove this when cupy.random.choice becomes available
+            bg_inds = cuda.to_cpu(bg_inds)
             bg_inds = np.random.choice(
                 bg_inds, size=n_bg_rois_per_image, replace=False)
+            bg_inds = xp.asarray(bg_inds)
 
         # The indices that we're selecting (both fg and bg)
-        keep_inds = np.concatenate([fg_inds, bg_inds]).astype(np.int32)
+        keep_inds = xp.concatenate([fg_inds, bg_inds]).astype(xp.int32)
         # Select sampled values from cls_labels
         cls_labels = cls_labels[keep_inds]
         # Clamp labels for the background RoIs to 0
@@ -131,9 +135,9 @@ class ProposalTargetLayer(AnchorTargetLayer):
         bbox_reg_targets = bbox_transform(proposals, use_gt_boxes)
 
         # Convert bbox_reg_targets into class-wise form
-        ext_bbox_reg_targets = np.zeros(
-            (len(keep_inds), 4 * self._num_classes), dtype=np.float32)
-        object_inds = np.where(use_gt_boxes[:, -1] > 0)[0]
+        ext_bbox_reg_targets = xp.zeros(
+            (len(keep_inds), 4 * self._num_classes), dtype=xp.float32)
+        object_inds = xp.where(use_gt_boxes[:, -1] > 0)[0]
         for ind in object_inds:
             cls_pos = int(4 * use_gt_boxes[ind, -1])
             ext_bbox_reg_targets[ind, cls_pos:cls_pos + 4] = bbox_reg_targets[ind]
