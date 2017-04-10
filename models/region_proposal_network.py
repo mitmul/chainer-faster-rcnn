@@ -15,7 +15,6 @@ from models.proposal_layer import ProposalLayer
 
 
 class RegionProposalNetwork(Chain):
-
     """Region Proposal Network
 
     It generates predicted class probabilities and bounding box regression
@@ -48,7 +47,7 @@ class RegionProposalNetwork(Chain):
             self, in_ch=512, mid_ch=512, feat_stride=16,
             anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32),
             num_classes=21, loss_lambda=10.):
-        w = initializers.Uniform(0.001)
+        w = initializers.Normal(0.001)
         n_anchors = len(anchor_ratios) * len(anchor_scales)
         super(RegionProposalNetwork, self).__init__(
             rpn_conv_3x3=L.Convolution2D(in_ch, mid_ch, 3, 1, 1, initialW=w),
@@ -123,31 +122,23 @@ class RegionProposalNetwork(Chain):
         proposals, probs = self.proposal_layer(
             rpn_cls_prob, rpn_bbox_pred, img_info)
 
-        if gt_boxes is not None:
-            bbox_labels, bbox_reg_targets = \
-                self.anchor_target_layer(rpn_cls_prob, gt_boxes, img_info)
-
         if self.train and gt_boxes is not None:
-            # Reshape bbox_labels and rpn_cls_score
-            n_anchors = self.proposal_layer._num_anchors
-            feat_h, feat_w = x.shape[2], x.shape[3]
-            bbox_labels = bbox_labels.reshape(1, n_anchors, feat_h, feat_w)
-            rpn_cls_score = rpn_cls_score.reshape(
-                1, 2, n_anchors, feat_h, feat_w)
+            # Get feature map size
+            feat_h, feat_w = rpn_cls_prob.shape[2:]
 
-            n_rpn_batchsize = self.anchor_target_layer.RPN_BATCHSIZE
-            rpn_loss_cls = F.softmax_cross_entropy(rpn_cls_score, bbox_labels)
-            rpn_loss_cls = F.expand_dims(rpn_loss_cls, 0)
-            rpn_loss_cls /= n_rpn_batchsize
-            rpn_loss_cls = rpn_loss_cls.reshape(())
+            # Get target values to calc losses
+            bbox_labels, bbox_reg_targets, inds_inside, n_all_bbox = \
+                self.anchor_target_layer(feat_h, feat_w, gt_boxes, img_info)
 
-            bbox_reg_targets = bbox_reg_targets.transpose(1, 0).ravel()
-            bbox_reg_targets = bbox_reg_targets[None, :]
-            n_anchor_locs = rpn_bbox_pred.shape[2] * rpn_bbox_pred.shape[3]
-            rpn_bbox_pred = F.expand_dims(F.flatten(rpn_bbox_pred), 0)
-            rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
-            rpn_loss_bbox /= n_anchor_locs
-            rpn_loss_bbox = rpn_loss_bbox.reshape(())
+            # Calc classification loss
+            rpn_loss_cls = self._calc_rpn_loss_cls(rpn_cls_score, bbox_labels,
+                                                   inds_inside, n_all_bbox,
+                                                   feat_h, feat_w)
+
+            # Calc regression loss
+            rpn_loss_bbox = self._calc_rpn_loss_bbox(rpn_bbox_pred,
+                                                     bbox_reg_targets,
+                                                     inds_inside)
 
             rpn_loss = rpn_loss_cls + self._loss_lambda * rpn_loss_bbox
 
@@ -158,3 +149,42 @@ class RegionProposalNetwork(Chain):
             return rpn_loss
 
         return proposals, probs
+
+    def _calc_rpn_loss_cls(self, rpn_cls_score, bbox_labels, inds_inside,
+                           n_all_bbox, feat_h, feat_w):
+        # To map up
+        xp = cuda.get_array_module(bbox_labels)
+        bbox_labels_mapped = xp.ones((n_all_bbox,), dtype=xp.int32) * -1
+        bbox_labels_mapped[inds_inside] = bbox_labels
+
+        # Initially it's in (K x A, 4), so the number of lattices first
+        n_anchors = self.proposal_layer._num_anchors
+        bbox_labels_mapped = bbox_labels_mapped.reshape(1, feat_h, feat_w,
+                                                        n_anchors)
+        bbox_labels_mapped = bbox_labels_mapped.transpose(0, 3, 1, 2)
+
+        # Classification loss (bg/fg)
+        rpn_cls_score = rpn_cls_score.reshape(1, 2, n_anchors, feat_h,
+                                              feat_w)
+        rpn_loss_cls = F.softmax_cross_entropy(rpn_cls_score,
+                                               bbox_labels_mapped)
+        return rpn_loss_cls.reshape(())
+
+    def _calc_rpn_loss_bbox(self, rpn_bbox_pred, bbox_reg_targets, inds_inside):
+        # rpn_bbox_pred has the shape of (1, 4 x n_anchors, feat_h, feat_w)
+        n_anchors = self.proposal_layer._num_anchors
+        # Reshape it into (4, A, K)
+        rpn_bbox_pred = rpn_bbox_pred.reshape(4, n_anchors, -1)
+        # Transpose it into (K, A, 4)
+        rpn_bbox_pred = rpn_bbox_pred.transpose(2, 1, 0)
+        # Reshape it into (K x A, 4)
+        rpn_bbox_pred = rpn_bbox_pred.reshape(-1, 4)
+        # Select bbox and ravel it
+        rpn_bbox_pred = F.flatten(rpn_bbox_pred[inds_inside])
+        # Create batch dimension
+        rpn_bbox_pred = F.expand_dims(rpn_bbox_pred, 0)
+        # Ravel the targets and create batch dimension
+        bbox_reg_targets = bbox_reg_targets.ravel()[None, :]
+        # Calc Smooth L1 Loss (When delta=1, huber loss is SmoothL1Loss)
+        rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
+        return rpn_loss_bbox.reshape(())

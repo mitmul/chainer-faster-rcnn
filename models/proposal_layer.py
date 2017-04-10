@@ -49,7 +49,8 @@ class ProposalLayer(object):
     """
 
     RPN_NMS_THRESH = 0.7
-    TRAIN_RPN_PRE_NMS_TOP_N = 12000
+    # TRAIN_RPN_PRE_NMS_TOP_N = 12000
+    TRAIN_RPN_PRE_NMS_TOP_N = 6000
     TRAIN_RPN_POST_NMS_TOP_N = 2000
     TEST_RPN_PRE_NMS_TOP_N = 6000
     TEST_RPN_POST_NMS_TOP_N = 300
@@ -66,7 +67,7 @@ class ProposalLayer(object):
         self._nms_thresh = np.float(self.RPN_NMS_THRESH)
         self._min_size = self.RPN_MIN_SIZE
         self._train = True
-        self.train = self._train
+        self.train = self._train  # To set _pre_nms_top_n and _post_nms_top_n
 
     @property
     def train(self):
@@ -129,14 +130,14 @@ class ProposalLayer(object):
         rpn_bbox_pred = rpn_bbox_pred.data[0]
         img_info = img_info.data[0]
 
-        # Generate all anchors whose scale is at the input image plane
-        all_anchors = self._generate_all_anchors(rpn_bbox_pred)
+        # Generate all regions whose scale is at the input image plane
+        all_bbox = self._generate_all_bbox_use_array_info(rpn_bbox_pred)
 
         # Reshape anchor transformation to (A * feat_h * feat_w, 4)
         bbox_trans = rpn_bbox_pred.transpose(1, 2, 0).reshape(-1, 4)
 
         # Apply the transformation to the base anchors
-        proposals = bbox_transform_inv(all_anchors, bbox_trans)
+        proposals = bbox_transform_inv(all_bbox, bbox_trans)
 
         # Clip predicted boxes to image
         proposals = clip_boxes(proposals, img_info)
@@ -174,9 +175,8 @@ class ProposalLayer(object):
             keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
         else:
             # TODO(mitmul): Improve gpu_nms to take GPU array directly
-            assert len(proposals) > 0
-            assert len(fg_probs) > 0
-            dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(np.float32)
+            dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(
+                np.float32)
             keep = gpu_nms(dets, self._nms_thresh)
             keep = xp.asarray(keep)
 
@@ -188,24 +188,29 @@ class ProposalLayer(object):
 
         return proposals, fg_probs
 
-    def _generate_all_anchors(self, rpn_bbox_pred):
+    def _generate_all_bbox_use_array_info(self, rpn_bbox_pred):
         xp = cuda.get_array_module(rpn_bbox_pred)
         _, feat_h, feat_w = rpn_bbox_pred.shape
+        return self._generate_all_bbox(feat_h, feat_w, xp)
 
-        # Create lattice
+    def _generate_all_bbox(self, feat_h, feat_w, xp=None):
+        xp = np if xp is None else xp
+
+        # Create lattice (base points to shift anchors)
         shift_x = xp.arange(0, feat_w) * self._feat_stride
         shift_y = xp.arange(0, feat_h) * self._feat_stride
         shift_x, shift_y = xp.meshgrid(shift_x, shift_y)
         shifts = xp.vstack((shift_x.ravel(), shift_y.ravel(),
                             shift_x.ravel(), shift_y.ravel())).transpose()
 
-        # Create all shifted anchors
+        # Create all bbox
         A = self._num_anchors
-        K = len(shifts)  # number of lattice points = feat_h * feat_w
+        K = len(shifts)  # number of base points = feat_h * feat_w
 
-        if xp is cuda.cupy and not isinstance(self._anchors, cuda.cupy.ndarray):
+        if xp is cuda.cupy \
+                and not isinstance(self._anchors, cuda.cupy.ndarray):
             self._anchors = xp.asarray(self._anchors)
 
-        anchors = self._anchors.reshape(1, A, 4) + shifts.reshape(K, 1, 4)
-        anchors = anchors.reshape(K * A, 4)
-        return anchors
+        bbox = self._anchors.reshape(1, A, 4) + shifts.reshape(K, 1, 4)
+        bbox = bbox.reshape(K * A, 4)
+        return bbox

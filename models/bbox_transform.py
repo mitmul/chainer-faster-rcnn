@@ -67,8 +67,6 @@ def _bbox_transform_inv(boxes, trans):
     pred_ctr_y = dy * heights[:, xp.newaxis] + ctr_y[:, xp.newaxis]
     pred_w = xp.exp(dw) * widths[:, xp.newaxis]
     pred_h = xp.exp(dh) * heights[:, xp.newaxis]
-    assert not xp.isnan(pred_w).any()
-    assert not xp.isnan(pred_h).any()
 
     pred_boxes = xp.zeros(trans.shape, dtype=trans.dtype)
     # x1
