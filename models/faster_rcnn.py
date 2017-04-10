@@ -22,13 +22,14 @@ class FasterRCNN(Chain):
     def __init__(
             self, trunk_class=VGG16, rpn_in_ch=512, rpn_mid_ch=512,
             feat_stride=16, anchor_ratios=(0.5, 1, 2),
-            anchor_scales=(8, 16, 32), num_classes=21):
+            anchor_scales=(8, 16, 32), num_classes=21, loss_lambda=10,
+            delta=3):
         w = initializers.Normal(0.01)
         super(FasterRCNN, self).__init__(
             trunk=trunk_class(),
             RPN=RegionProposalNetwork(
-                rpn_in_ch, rpn_mid_ch, feat_stride,
-                anchor_ratios, anchor_scales, num_classes),
+                rpn_in_ch, rpn_mid_ch, feat_stride, anchor_ratios,
+                anchor_scales, num_classes, loss_lambda, delta),
             fc6=L.Linear(None, 4096, initialW=w),
             fc7=L.Linear(4096, 4096, initialW=w),
             cls_score=L.Linear(4096, num_classes, initialW=w),
@@ -142,7 +143,7 @@ class FasterRCNN(Chain):
 
             # Select predicted bbox transformations and calc loss
             bbox_pred = bbox_pred[keep_inds]
-            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, 1)
+            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, 3)
             loss_bbox = F.sum(loss_bbox) / loss_bbox.size
             loss_bbox = loss_bbox.reshape(())
 

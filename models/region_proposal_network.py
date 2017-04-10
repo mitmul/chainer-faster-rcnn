@@ -46,7 +46,7 @@ class RegionProposalNetwork(Chain):
     def __init__(
             self, in_ch=512, mid_ch=512, feat_stride=16,
             anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32),
-            num_classes=21, loss_lambda=10.):
+            num_classes=21, loss_lambda=10., delta=3):
         w = initializers.Normal(0.001)
         n_anchors = len(anchor_ratios) * len(anchor_scales)
         super(RegionProposalNetwork, self).__init__(
@@ -62,6 +62,7 @@ class RegionProposalNetwork(Chain):
             feat_stride, anchor_ratios, anchor_scales)
         self._loss_lambda = loss_lambda
         self._train = True
+        self._delta = 3
 
     @property
     def train(self):
@@ -179,6 +180,8 @@ class RegionProposalNetwork(Chain):
         rpn_bbox_pred = rpn_bbox_pred.transpose(2, 1, 0)
         # Reshape it into (K x A, 4)
         rpn_bbox_pred = rpn_bbox_pred.reshape(-1, 4)
+        # Keep the number of bbox
+        n_bbox = rpn_bbox_pred.shape[0]
         # Select bbox and ravel it
         rpn_bbox_pred = F.flatten(rpn_bbox_pred[inds_inside])
         # Create batch dimension
@@ -186,5 +189,7 @@ class RegionProposalNetwork(Chain):
         # Ravel the targets and create batch dimension
         bbox_reg_targets = bbox_reg_targets.ravel()[None, :]
         # Calc Smooth L1 Loss (When delta=1, huber loss is SmoothL1Loss)
-        rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets, 1)
+        rpn_loss_bbox = F.huber_loss(rpn_bbox_pred, bbox_reg_targets,
+                                     self._delta)
+        rpn_loss_bbox /= n_bbox
         return rpn_loss_bbox.reshape(())
