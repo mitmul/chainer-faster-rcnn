@@ -86,5 +86,3 @@ class TestAnchorTargetLayer(unittest.TestCase):
         cv.imwrite('tests/neg_canvas.png', neg_canvas)
         cv.imwrite('tests/pos_canvas.png', pos_canvas)
         cv.imwrite('tests/ign_canvas.png', ign_canvas)
-
-        print(bbox_reg_targets)

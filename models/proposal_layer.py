@@ -63,7 +63,7 @@ class ProposalLayer(object):
         self._anchors = generate_anchors(
             ratios=anchor_ratios, scales=anchor_scales)
         self._num_anchors = len(self._anchors)  # Typically 9
-        self._nms_thresh = self.RPN_NMS_THRESH
+        self._nms_thresh = np.float(self.RPN_NMS_THRESH)
         self._min_size = self.RPN_MIN_SIZE
         self._train = True
         self.train = self._train
@@ -122,16 +122,12 @@ class ProposalLayer(object):
         if self.type_check_enable:
             self._check_data_type_forward(rpn_cls_prob, rpn_bbox_pred, img_info)
 
+        xp = cuda.get_array_module(rpn_cls_prob)
+
         # Currently it assumes that the batchsize is always 1
         rpn_cls_prob = rpn_cls_prob.data[0]
         rpn_bbox_pred = rpn_bbox_pred.data[0]
         img_info = img_info.data[0]
-
-        # TODO(mitmul): Currently it only supports CPU mode
-        if cuda.get_array_module(rpn_cls_prob) is cuda.cupy:
-            rpn_cls_prob = cuda.to_cpu(rpn_cls_prob)
-            rpn_bbox_pred = cuda.to_cpu(rpn_bbox_pred)
-            img_info = cuda.to_cpu(img_info)
 
         # Generate all anchors whose scale is at the input image plane
         all_anchors = self._generate_all_anchors(rpn_bbox_pred)
@@ -158,7 +154,14 @@ class ProposalLayer(object):
         # Sort all (proposal, score) pairs by score from highest to lowest and
         # take top pre_nms_topN (e.g. 6000)
         order = fg_probs.ravel()
-        order = order.argsort()[::-1]
+
+        # TODO(mitmul): User cupy.argsort when it becomes available
+        if isinstance(order, cuda.cupy.ndarray):
+            order = cuda.to_cpu(order).argsort()[::-1]
+            order = xp.asarray(order)
+        else:
+            order = order.argsort()[::-1]
+
         if self._pre_nms_top_n > 0:
             order = order[:self._pre_nms_top_n]
         proposals = proposals[order]
@@ -167,7 +170,14 @@ class ProposalLayer(object):
         # Apply nms (e.g. threshold = 0.7)
         # Take after_nms_top_n (e.g. 300)
         # return the top proposals (-> RoIs top)
-        keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+        if xp is not cuda.cupy:
+            keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+        else:
+            # TODO(mitmul): Improve gpu_nms to take GPU array directly
+            dets = xp.hstack((proposals, fg_probs))
+            keep = gpu_nms(cuda.to_cpu(dets.astype(np.float32)), self._nms_thresh)
+            keep = xp.asarray(keep)
+
         if self._post_nms_top_n > 0:
             keep = keep[:self._post_nms_top_n]
 
@@ -177,18 +187,22 @@ class ProposalLayer(object):
         return proposals, fg_probs
 
     def _generate_all_anchors(self, rpn_bbox_pred):
+        xp = cuda.get_array_module(rpn_bbox_pred)
         _, feat_h, feat_w = rpn_bbox_pred.shape
 
         # Create lattice
-        shift_x = np.arange(0, feat_w) * self._feat_stride
-        shift_y = np.arange(0, feat_h) * self._feat_stride
-        shift_x, shift_y = np.meshgrid(shift_x, shift_y)
-        shifts = np.vstack((shift_x.ravel(), shift_y.ravel(),
+        shift_x = xp.arange(0, feat_w) * self._feat_stride
+        shift_y = xp.arange(0, feat_h) * self._feat_stride
+        shift_x, shift_y = xp.meshgrid(shift_x, shift_y)
+        shifts = xp.vstack((shift_x.ravel(), shift_y.ravel(),
                             shift_x.ravel(), shift_y.ravel())).transpose()
 
         # Create all shifted anchors
         A = self._num_anchors
         K = len(shifts)  # number of lattice points = feat_h * feat_w
+
+        if xp is cuda.cupy and not isinstance(self._anchors, cuda.cupy.ndarray):
+            self._anchors = xp.asarray(self._anchors)
 
         anchors = self._anchors.reshape(1, A, 4) + shifts.reshape(K, 1, 4)
         anchors = anchors.reshape(K * A, 4)

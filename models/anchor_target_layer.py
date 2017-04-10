@@ -88,17 +88,12 @@ class AnchorTargetLayer(ProposalLayer):
         if self.type_check_enable:
             self._check_data_type_forward(rpn_cls_prob, gt_boxes, img_info)
 
+        xp = cuda.get_array_module(rpn_cls_prob)
 
         # Currently it assumes that the batchsize is always 1
         rpn_cls_prob = rpn_cls_prob.data[0]
         gt_boxes = gt_boxes.data[0]
         img_info = img_info.data[0]
-
-        # TODO(mitmul): Currently CPU mode is way faster than GPU mode
-        if cuda.get_array_module(rpn_cls_prob) is cuda.cupy:
-            rpn_cls_prob = cuda.to_cpu(rpn_cls_prob)
-            gt_boxes = cuda.to_cpu(gt_boxes)
-            img_info = cuda.to_cpu(img_info)
 
         all_anchors = self._generate_all_anchors(rpn_cls_prob)
         inds_inside, all_inside_anchors = keep_inside(all_anchors, img_info)
@@ -120,9 +115,10 @@ class AnchorTargetLayer(ProposalLayer):
 
         label: 1 is positive, 0 is negative, -1 is dont care
         """
+        xp = cuda.get_array_module(inds_inside)
 
         # assign ignore labels first
-        labels = np.ones((len(inds_inside),), dtype=np.int32) * -1
+        labels = xp.ones((len(inds_inside),), dtype=np.int32) * -1
 
         argmax_overlaps_inds, max_overlaps, gt_argmax_overlaps_inds = \
             self._calc_overlaps(anchors, gt_boxes, inds_inside)
@@ -141,8 +137,12 @@ class AnchorTargetLayer(ProposalLayer):
 
         # subsample positive labels if we have too many
         num_fg = int(self.RPN_FG_FRACTION * self.RPN_BATCHSIZE)
-        fg_inds = np.where(labels == 1)[0]
+        fg_inds = xp.where(labels == 1)[0]
         if len(fg_inds) > num_fg:
+            # TODO(mitmul): When cupy.random.choice becomes available, remove it
+            fg_inds = cuda.to_cpu(fg_inds)
+
+            # TODO(mitmul): Use cupy.random.choice if it becomes available
             disable_inds = np.random.choice(
                 fg_inds, size=(len(fg_inds) - num_fg), replace=False)
             labels[disable_inds] = -1
@@ -151,6 +151,10 @@ class AnchorTargetLayer(ProposalLayer):
         fg_inds = np.where(labels == 1)[0]
         bg_inds = np.where(labels == 0)[0]
         if len(bg_inds) > num_fg:
+            # TODO(mitmul): When cupy.random.choice becomes available, remove it
+            bg_inds = cuda.to_cpu(bg_inds)
+
+            # TODO(mitmul): Use cupy.random.choice if it becomes available
             disable_inds = np.random.choice(
                 bg_inds, size=len(bg_inds) - len(fg_inds), replace=False)
             labels[disable_inds] = -1
@@ -160,18 +164,25 @@ class AnchorTargetLayer(ProposalLayer):
     def _calc_overlaps(self, anchors, gt_boxes, inds_inside):
         # overlaps between the anchors and the gt boxes
         # overlaps (ex, gt)
+        xp = cuda.get_array_module(anchors)
 
+        # TODO(mitmul): Use bbox_overlaps for GPU
+        anchors = cuda.to_cpu(anchors)
+        gt_boxes = cuda.to_cpu(gt_boxes)
         overlaps = bbox_overlaps(
             np.ascontiguousarray(anchors, dtype=np.float),
             np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
+        # TODO(mitmul): Remove these two lines when bbox_overlaps for GPU comes
+        anchors = xp.asarray(anchors)
+        gt_boxes = xp.asarray(gt_boxes)
 
         argmax_overlaps_inds = overlaps.argmax(axis=1)
         gt_argmax_overlaps_inds = overlaps.argmax(axis=0)
 
         max_overlaps = overlaps[
-            np.arange(len(inds_inside)), argmax_overlaps_inds]
+            xp.arange(len(inds_inside)), argmax_overlaps_inds]
         gt_max_overlaps = overlaps[
-            gt_argmax_overlaps_inds, np.arange(overlaps.shape[1])]
+            gt_argmax_overlaps_inds, xp.arange(overlaps.shape[1])]
         gt_argmax_overlaps_inds = np.where(overlaps == gt_max_overlaps)[0]
 
         return argmax_overlaps_inds, max_overlaps, gt_argmax_overlaps_inds

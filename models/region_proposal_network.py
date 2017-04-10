@@ -123,20 +123,9 @@ class RegionProposalNetwork(Chain):
         proposals, probs = self.proposal_layer(
             rpn_cls_prob, rpn_bbox_pred, img_info)
 
-        # TODO(mitmul): Remove this re-sending below vars to GPU
-        xp = self.rpn_conv_3x3.xp
-        proposals = xp.asarray(proposals)
-        probs = xp.asarray(probs)
-
         if gt_boxes is not None:
             bbox_labels, bbox_reg_targets = \
                 self.anchor_target_layer(rpn_cls_prob, gt_boxes, img_info)
-            if cuda.get_device(x.data).id >= 0:
-                gt_boxes.to_gpu(cuda.get_device(x.data))
-
-            # TODO(mitmul): Re-send to GPU
-            bbox_labels = xp.asarray(bbox_labels)
-            bbox_reg_targets = xp.asarray(bbox_reg_targets)
 
         if self.train and gt_boxes is not None:
             # Reshape bbox_labels and rpn_cls_score
