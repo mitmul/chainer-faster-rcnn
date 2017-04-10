@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib  # isort:skip
+
 matplotlib.use('Agg')  # isort:skip
 
 import sys  # isort:skip
+
 sys.path.insert(0, '.')  # isort:skip
 
 import chainer
@@ -17,7 +19,7 @@ from models.faster_rcnn import FasterRCNN
 
 if __name__ == '__main__':
     batchsize = 1
-    
+
     train_dataset = VOC('train')
     valid_dataset = VOC('val')
 
@@ -35,7 +37,7 @@ if __name__ == '__main__':
 
     updater = training.StandardUpdater(train_iter, optimizer, device=0)
     trainer = training.Trainer(updater, (100, 'epoch'), out='tests/train_test')
-    trainer.extend(extensions.LogReport(trigger=(1, 'iteration')))
+    trainer.extend(extensions.LogReport(trigger=(10, 'iteration')))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration',
         'main/RPN/rpn_loss',
@@ -45,6 +47,9 @@ if __name__ == '__main__':
         'main/loss_bbox',
         'main/loss_rcnn',
         'elapsed_time',
-    ]), trigger=(1, 'iteration'))
+    ]), trigger=(10, 'iteration'))
+    trainer.extend(extensions.snapshot_object(model, 'snapshot_{epoch}'))
+    trainer.extend(extensions.PlotReport(['main/RPN/rpn_loss'],
+                                         trigger=(100, 'iteration')))
 
     trainer.run()
