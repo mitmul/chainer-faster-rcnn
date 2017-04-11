@@ -149,7 +149,7 @@ class AnchorTargetLayer(ProposalLayer):
             # TODO(mitmul): Current cupy.random.choice doesn't support replace=False
             fg_inds = cuda.to_cpu(fg_inds)
             disable_inds = np.random.choice(
-                fg_inds, size=len(fg_inds) - num_fg, replace=False)
+                fg_inds, size=int(len(fg_inds) - num_fg), replace=False)
             labels[disable_inds] = -1
 
         # subsample negative labels if we have too many
@@ -159,7 +159,7 @@ class AnchorTargetLayer(ProposalLayer):
             # TODO(mitmul): Current cupy.random.choice doesn't support replace=False
             bg_inds = cuda.to_cpu(bg_inds)
             disable_inds = np.random.choice(
-                bg_inds, size=len(bg_inds) - num_bg, replace=False)
+                bg_inds, size=int(len(bg_inds) - num_bg), replace=False)
             labels[disable_inds] = -1
 
         # TODO(mitmul): Remove this when cupy.random.choice with replace=False becomes available

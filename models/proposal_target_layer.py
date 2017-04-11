@@ -137,7 +137,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
         # Convert bbox_reg_targets into class-wise form
         ext_bbox_reg_targets = xp.zeros(
             (len(keep_inds), 4 * self._num_classes), dtype=xp.float32)
-        object_inds = xp.where(use_gt_boxes[:, -1] > 0)[0]
+        object_inds = xp.where(use_gt_boxes[:, 4] > 0)[0]
         for ind in object_inds:
             cls_pos = int(4 * use_gt_boxes[ind, -1])
             ext_bbox_reg_targets[ind, cls_pos:cls_pos + 4] = bbox_reg_targets[ind]

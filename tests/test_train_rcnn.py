@@ -17,6 +17,7 @@ from chainer.training import extensions
 from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
 from chainer.dataset import concat_examples
+from chainer import serializers
 
 
 def warmup(model, iterator, gpu_id=0):
@@ -39,11 +40,12 @@ if __name__ == '__main__':
 
     train_iter = iterators.SerialIterator(train_dataset, batchsize)
     model = FasterRCNN()
-    model.rpn_train = True
-    # model.rcnn_train = True
     model.to_gpu(0)
 
     warmup(model, train_iter)
+    model.rcnn_train = True
+
+    serializers.load_npz('tests/train_test/snapshot_10000', model)
 
     # optimizer = optimizers.Adam()
     # optimizer.setup(model)
@@ -52,13 +54,11 @@ if __name__ == '__main__':
     optimizer.add_hook(chainer.optimizer.WeightDecay(0.0005))
 
     updater = training.StandardUpdater(train_iter, optimizer, device=0)
-    trainer = training.Trainer(updater, (100, 'epoch'), out='tests/train_test')
+    trainer = training.Trainer(updater, (100, 'epoch'),
+                               out='tests/train_test_rcnn')
     trainer.extend(extensions.LogReport(trigger=(10, 'iteration')))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration',
-        'main/RPN/rpn_loss',
-        'main/RPN/rpn_loss_cls',
-        'main/RPN/rpn_loss_bbox',
         'main/loss_cls',
         'main/loss_bbox',
         'main/loss_rcnn',
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     trainer.extend(
         extensions.snapshot_object(model, 'snapshot_{.updater.iteration}'),
         trigger=(1000, 'iteration'))
-    trainer.extend(extensions.PlotReport(['main/RPN/rpn_loss'],
-                                         trigger=(100, 'iteration')))
+    trainer.extend(extensions.PlotReport(
+        ['main/loss_rcnn'], trigger=(100, 'iteration')))
 
     trainer.run()

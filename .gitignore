@@ -4,6 +4,7 @@
 .sync-config.cson
 
 data
+tests/tests
 
 *__pycache__*
 *.pyc

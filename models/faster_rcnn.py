@@ -41,7 +41,8 @@ class FasterRCNN(Chain):
         self._num_classes = num_classes
         self.RPN.train = False
         self._rcnn_train = False
-        self.spatial_scale = 1. / feat_stride
+        self._spatial_scale = 1. / feat_stride
+        self._delta = delta
 
     @property
     def rcnn_train(self):
@@ -109,7 +110,7 @@ class FasterRCNN(Chain):
         # RCNN
         batch_id = xp.zeros((len(proposals), 1), dtype=xp.float32)
         brois = xp.concatenate((batch_id, proposals), axis=1)
-        pool5 = F.roi_pooling_2d(feature_map, brois, 7, 7, self.spatial_scale)
+        pool5 = F.roi_pooling_2d(feature_map, brois, 7, 7, self._spatial_scale)
         fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.rcnn_train)
         fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.rcnn_train)
 
@@ -143,7 +144,7 @@ class FasterRCNN(Chain):
 
             # Select predicted bbox transformations and calc loss
             bbox_pred = bbox_pred[keep_inds]
-            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, 3)
+            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, self._delta)
             loss_bbox = F.sum(loss_bbox) / loss_bbox.size
             loss_bbox = loss_bbox.reshape(())
 
