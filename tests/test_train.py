@@ -16,6 +16,20 @@ from chainer import training
 from chainer.training import extensions
 from datasets.pascal_voc_dataset import VOC
 from models.faster_rcnn import FasterRCNN
+from chainer.dataset import concat_examples
+
+
+def warmup(model, iterator, gpu_id=0):
+    batch = iterator.next()
+    img, img_info, bbox = concat_examples(batch, gpu_id)
+    img = chainer.Variable(img)
+    img_info = chainer.Variable(img_info)
+    bbox = chainer.Variable(bbox)
+    model.rcnn_train = True
+    model(img, img_info, bbox)
+    model.rpn_train = True
+    model(img, img_info, bbox)
+
 
 if __name__ == '__main__':
     batchsize = 1
@@ -28,6 +42,8 @@ if __name__ == '__main__':
     model.rpn_train = True
     # model.rcnn_train = True
     model.to_gpu(0)
+
+    warmup(model, train_iter)
 
     # optimizer = optimizers.Adam()
     # optimizer.setup(model)
@@ -48,7 +64,9 @@ if __name__ == '__main__':
         'main/loss_rcnn',
         'elapsed_time',
     ]), trigger=(10, 'iteration'))
-    trainer.extend(extensions.snapshot_object(model, 'snapshot_{epoch}'))
+    trainer.extend(
+        extensions.snapshot_object(model, 'snapshot_{.updater.iteration}'),
+        trigger=(1000, 'iteration'))
     trainer.extend(extensions.PlotReport(['main/RPN/rpn_loss'],
                                          trigger=(100, 'iteration')))
 

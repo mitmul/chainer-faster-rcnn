@@ -49,8 +49,7 @@ class ProposalLayer(object):
     """
 
     RPN_NMS_THRESH = 0.7
-    # TRAIN_RPN_PRE_NMS_TOP_N = 12000
-    TRAIN_RPN_PRE_NMS_TOP_N = 6000
+    TRAIN_RPN_PRE_NMS_TOP_N = 12000
     TRAIN_RPN_POST_NMS_TOP_N = 2000
     TEST_RPN_PRE_NMS_TOP_N = 6000
     TEST_RPN_POST_NMS_TOP_N = 300
@@ -171,20 +170,28 @@ class ProposalLayer(object):
         # Apply nms (e.g. threshold = 0.7)
         # Take after_nms_top_n (e.g. 300)
         # return the top proposals (-> RoIs top)
-        if xp is not cuda.cupy:
-            keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
-        else:
-            # TODO(mitmul): Improve gpu_nms to take GPU array directly
-            dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(
-                np.float32)
-            keep = gpu_nms(dets, self._nms_thresh)
-            keep = xp.asarray(keep)
+        # TODO(mitmul): Fix this workaround for GPU memory limit
+        proposals = cuda.to_cpu(proposals)
+        fg_probs = cuda.to_cpu(fg_probs)
+        keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+
+        # if xp is not cuda.cupy:
+        #     keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+        # else:
+        #     # TODO(mitmul): Improve gpu_nms to take GPU array directly
+        #     dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(
+        #         np.float32)
+        #     keep = gpu_nms(dets, self._nms_thresh)
+        #     keep = xp.asarray(keep)
 
         if self._post_nms_top_n > 0:
             keep = keep[:self._post_nms_top_n]
 
         proposals = proposals[keep]
         fg_probs = fg_probs[keep]
+
+        proposals = xp.asarray(proposals)
+        fg_probs = xp.asarray(fg_probs)
 
         return proposals, fg_probs
 
