@@ -4,6 +4,7 @@
 # Copyright (c) 2016 Shunta Saito
 
 import matplotlib  # isort:skip
+
 matplotlib.use('Agg')
 
 import json
@@ -11,8 +12,7 @@ import json
 from chainer import iterators
 from chainer import training
 from chainer.training import extensions
-from lib.datasets.voc.dataset import VOC
-from updater import ParallelUpdater
+from datasets.pascal_voc_dataset import VOC
 from utils.prepare_train import create_args
 from utils.prepare_train import create_result_dir
 from utils.prepare_train import get_model

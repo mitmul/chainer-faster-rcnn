@@ -37,9 +37,8 @@ def create_args():
     parser.add_argument('--feat_stride', type=int, default=16)
     parser.add_argument('--anchor_scales', type=str, default='8,16,32')
     parser.add_argument('--num_classes', type=int, default=21)
-    parser.add_argument('--spatial_scale', type=float, default=0.0625)
-    parser.add_argument('--rpn_sigma', type=float, default=1.0)
-    parser.add_argument('--sigma', type=float, default=3.0)
+    parser.add_argument('--loss_delta', type=float, default=3.0)
+    parser.add_argument('--loss_lambda', type=float, default=1.0)
 
     parser.add_argument(
         '--epoch', type=int, default=100,
@@ -102,7 +101,8 @@ def create_args():
     xp = chainer.cuda.cupy if chainer.cuda.available else np
     xp.random.seed(args.seed)
     args.anchor_scales = [int(v) for v in args.anchor_scales.split(',') if v]
-    args.trunk_model = None if args.trunk_model == 'None' else '{}Layers'.format(args.trunk_model)
+    args.trunk_model = None if args.trunk_model == 'None' \
+        else '{}Layers'.format(args.trunk_model)
     return args
 
 

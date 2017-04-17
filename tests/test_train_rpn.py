@@ -52,18 +52,21 @@ if __name__ == '__main__':
 
     updater = training.StandardUpdater(train_iter, optimizer, device=0)
     trainer = training.Trainer(updater, (100, 'epoch'), out='tests/train_test')
-    trainer.extend(extensions.LogReport(trigger=(10, 'iteration')))
+    trainer.extend(extensions.LogReport(trigger=(100, 'iteration')))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration',
         'main/RPN/rpn_loss',
         'main/RPN/rpn_loss_cls',
+        'main/RPN/rpn_cls_accuracy',
         'main/RPN/rpn_loss_bbox',
         'elapsed_time',
-    ]), trigger=(10, 'iteration'))
+    ]), trigger=(100, 'iteration'))
     trainer.extend(
         extensions.snapshot_object(model, 'snapshot_{.updater.iteration}'),
         trigger=(1000, 'iteration'))
     trainer.extend(extensions.PlotReport(['main/RPN/rpn_loss'],
                                          trigger=(100, 'iteration')))
+    trainer.extend(
+        extensions.dump_graph('main/RPN/rpn_loss', out_name='rpn_loss.dot'))
 
     trainer.run()

@@ -5,6 +5,7 @@
 
 data
 tests/tests
+notes
 
 *__pycache__*
 *.pyc

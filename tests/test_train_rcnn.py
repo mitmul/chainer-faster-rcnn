@@ -56,14 +56,14 @@ if __name__ == '__main__':
     updater = training.StandardUpdater(train_iter, optimizer, device=0)
     trainer = training.Trainer(updater, (100, 'epoch'),
                                out='tests/train_test_rcnn')
-    trainer.extend(extensions.LogReport(trigger=(10, 'iteration')))
+    trainer.extend(extensions.LogReport(trigger=(100, 'iteration')))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration',
         'main/loss_cls',
         'main/loss_bbox',
         'main/loss_rcnn',
         'elapsed_time',
-    ]), trigger=(10, 'iteration'))
+    ]), trigger=(100, 'iteration'))
     trainer.extend(
         extensions.snapshot_object(model, 'snapshot_{.updater.iteration}'),
         trigger=(1000, 'iteration'))

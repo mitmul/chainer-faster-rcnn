@@ -22,7 +22,7 @@ class FasterRCNN(Chain):
     def __init__(
             self, trunk_class=VGG16, rpn_in_ch=512, rpn_mid_ch=512,
             feat_stride=16, anchor_ratios=(0.5, 1, 2),
-            anchor_scales=(8, 16, 32), num_classes=21, loss_lambda=10,
+            anchor_scales=(8, 16, 32), num_classes=21, loss_lambda=1,
             delta=3):
         w = initializers.Normal(0.01)
         super(FasterRCNN, self).__init__(
@@ -53,6 +53,10 @@ class FasterRCNN(Chain):
         self._rcnn_train = val
         if val:
             self.RPN.train = not val
+        if self.rcnn_train or self.rpn_train:
+            self.trunk.train = True
+        else:
+            self.trunk.train = False
 
     @property
     def rpn_train(self):
@@ -63,6 +67,10 @@ class FasterRCNN(Chain):
         self.RPN.train = val
         if val:
             self._rcnn_train = not val
+        if self.rcnn_train or self.rpn_train:
+            self.trunk.train = True
+        else:
+            self.trunk.train = False
 
     def _check_data_type_forward(self, x, img_info, gt_boxes):
         assert x.shape[0] == 1
@@ -106,6 +114,8 @@ class FasterRCNN(Chain):
             return self.RPN(feature_map, img_info, gt_boxes)
         else:
             proposals, probs = self.RPN(feature_map, img_info, gt_boxes)
+            self.rpn_proposals = proposals
+            self.rpn_probs = probs
 
         # RCNN
         batch_id = xp.zeros((len(proposals), 1), dtype=xp.float32)
@@ -138,9 +148,10 @@ class FasterRCNN(Chain):
 
             # Select predicted scores and calc loss
             cls_score = cls_score[keep_inds]
-            loss_cls = F.softmax_cross_entropy(
-                cls_score, use_gt_boxes[:, -1].astype(xp.int32))
+            cls_labels = use_gt_boxes[:, -1].astype(xp.int32)
+            loss_cls = F.softmax_cross_entropy(cls_score, cls_labels)
             loss_cls = loss_cls.reshape(())
+            cls_acc = F.accuracy(cls_score, cls_labels, -1)
 
             # Select predicted bbox transformations and calc loss
             bbox_pred = bbox_pred[keep_inds]
@@ -151,6 +162,7 @@ class FasterRCNN(Chain):
             loss_rcnn = loss_cls + loss_bbox
 
             reporter.report({'loss_cls': loss_cls,
+                             'cls_accuracy': cls_acc,
                              'loss_bbox': loss_bbox,
                              'loss_rcnn': loss_rcnn}, self)
 

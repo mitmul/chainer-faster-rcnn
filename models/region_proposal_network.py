@@ -46,8 +46,8 @@ class RegionProposalNetwork(Chain):
     def __init__(
             self, in_ch=512, mid_ch=512, feat_stride=16,
             anchor_ratios=(0.5, 1, 2), anchor_scales=(8, 16, 32),
-            num_classes=21, loss_lambda=10., delta=3):
-        w = initializers.Normal(0.001)
+            num_classes=21, loss_lambda=1., delta=3):
+        w = initializers.Normal(0.01)
         n_anchors = len(anchor_ratios) * len(anchor_scales)
         super(RegionProposalNetwork, self).__init__(
             rpn_conv_3x3=L.Convolution2D(in_ch, mid_ch, 3, 1, 1, initialW=w),
@@ -62,7 +62,7 @@ class RegionProposalNetwork(Chain):
             feat_stride, anchor_ratios, anchor_scales)
         self._loss_lambda = loss_lambda
         self._train = True
-        self._delta = 3
+        self._delta = delta
 
     @property
     def train(self):
@@ -132,18 +132,21 @@ class RegionProposalNetwork(Chain):
                 self.anchor_target_layer(feat_h, feat_w, gt_boxes, img_info)
 
             # Calc classification loss
-            rpn_loss_cls = self._calc_rpn_loss_cls(rpn_cls_score, bbox_labels,
-                                                   inds_inside, n_all_bbox,
-                                                   feat_h, feat_w)
+            rpn_loss_cls, rpn_cls_accuracy = self._calc_rpn_loss_cls(
+                rpn_cls_score, bbox_labels, inds_inside, n_all_bbox, feat_h,
+                feat_w)
+            rpn_loss_cls.name = 'rpn_loss_cls'
 
             # Calc regression loss
-            rpn_loss_bbox = self._calc_rpn_loss_bbox(rpn_bbox_pred,
-                                                     bbox_reg_targets,
-                                                     inds_inside)
+            rpn_loss_bbox = self._calc_rpn_loss_bbox(
+                rpn_bbox_pred, bbox_reg_targets, inds_inside)
+            rpn_loss_bbox.name = 'rpn_loss_bbox'
 
             rpn_loss = rpn_loss_cls + self._loss_lambda * rpn_loss_bbox
+            rpn_loss.name = 'rpn_loss'
 
             reporter.report({'rpn_loss_cls': rpn_loss_cls,
+                             'rpn_cls_accuracy': rpn_cls_accuracy,
                              'rpn_loss_bbox': rpn_loss_bbox,
                              'rpn_loss': rpn_loss}, self)
 
@@ -167,9 +170,10 @@ class RegionProposalNetwork(Chain):
         # Classification loss (bg/fg)
         rpn_cls_score = rpn_cls_score.reshape(1, 2, n_anchors, feat_h,
                                               feat_w)
-        rpn_loss_cls = F.softmax_cross_entropy(rpn_cls_score,
-                                               bbox_labels_mapped)
-        return rpn_loss_cls.reshape(())
+        rpn_loss_cls = F.softmax_cross_entropy(
+            rpn_cls_score, bbox_labels_mapped)
+        rpn_cls_accuracy = F.accuracy(rpn_cls_score, bbox_labels_mapped, -1)
+        return rpn_loss_cls.reshape(()), rpn_cls_accuracy.reshape(())
 
     def _calc_rpn_loss_bbox(self, rpn_bbox_pred, bbox_reg_targets, inds_inside):
         # rpn_bbox_pred has the shape of (1, 4 x n_anchors, feat_h, feat_w)

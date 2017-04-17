@@ -146,23 +146,36 @@ class AnchorTargetLayer(ProposalLayer):
         num_fg = int(self.RPN_FG_FRACTION * self.RPN_BATCHSIZE)
         fg_inds = xp.where(labels == 1)[0]
         if len(fg_inds) > num_fg:
-            # TODO(mitmul): Current cupy.random.choice doesn't support replace=False
+            # TODO(mitmul): Current cupy.random.choice doesn't support
+            #               replace=False
             fg_inds = cuda.to_cpu(fg_inds)
             disable_inds = np.random.choice(
                 fg_inds, size=int(len(fg_inds) - num_fg), replace=False)
             labels[disable_inds] = -1
 
-        # subsample negative labels if we have too many
-        num_bg = self.RPN_BATCHSIZE - xp.sum(labels == 1)
+        # # subsample negative labels if we have too many
+        # num_bg = self.RPN_BATCHSIZE - xp.sum(labels == 1)
+        # bg_inds = xp.where(labels == 0)[0]
+        # if len(bg_inds) > num_bg:
+        #     # TODO(mitmul): Current cupy.random.choice doesn't support
+        #     #               replace=False
+        #     bg_inds = cuda.to_cpu(bg_inds)
+        #     disable_inds = np.random.choice(
+        #         bg_inds, size=int(len(bg_inds) - num_bg), replace=False)
+        #     labels[disable_inds] = -1
+
+        # subsample negative labels for the same number of positive labels
         bg_inds = xp.where(labels == 0)[0]
-        if len(bg_inds) > num_bg:
-            # TODO(mitmul): Current cupy.random.choice doesn't support replace=False
+        if len(bg_inds) != len(fg_inds):
+            # TODO(mitmul): Current cupy.random.choice doesn't support
+            #               replace=False
             bg_inds = cuda.to_cpu(bg_inds)
             disable_inds = np.random.choice(
-                bg_inds, size=int(len(bg_inds) - num_bg), replace=False)
+                bg_inds, size=int(len(bg_inds) - len(fg_inds)), replace=False)
             labels[disable_inds] = -1
 
-        # TODO(mitmul): Remove this when cupy.random.choice with replace=False becomes available
+        # TODO(mitmul): Remove this when cupy.random.choice with
+        #                replace=False becomes available
         labels = xp.asarray(labels)
 
         return argmax_overlaps_inds, labels
