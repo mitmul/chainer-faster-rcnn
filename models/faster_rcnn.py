@@ -23,13 +23,13 @@ class FasterRCNN(Chain):
             self, trunk_class=VGG16, rpn_in_ch=512, rpn_mid_ch=512,
             feat_stride=16, anchor_ratios=(0.5, 1, 2),
             anchor_scales=(8, 16, 32), num_classes=21, loss_lambda=1,
-            delta=3):
+            rpn_delta=3, rcnn_delta=1):
         w = initializers.Normal(0.01)
         super(FasterRCNN, self).__init__(
             trunk=trunk_class(),
             RPN=RegionProposalNetwork(
                 rpn_in_ch, rpn_mid_ch, feat_stride, anchor_ratios,
-                anchor_scales, num_classes, loss_lambda, delta),
+                anchor_scales, num_classes, loss_lambda, rpn_delta),
             fc6=L.Linear(None, 4096, initialW=w),
             fc7=L.Linear(4096, 4096, initialW=w),
             cls_score=L.Linear(4096, num_classes, initialW=w),
@@ -42,7 +42,8 @@ class FasterRCNN(Chain):
         self.RPN.train = False
         self._rcnn_train = False
         self._spatial_scale = 1. / feat_stride
-        self._delta = delta
+        self._rpn_delta = rpn_delta
+        self._rcnn_delta = rcnn_delta
 
     @property
     def rcnn_train(self):
@@ -155,7 +156,8 @@ class FasterRCNN(Chain):
 
             # Select predicted bbox transformations and calc loss
             bbox_pred = bbox_pred[keep_inds]
-            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets, self._delta)
+            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets,
+                                     self._rcnn_delta)
             loss_bbox = F.sum(loss_bbox) / loss_bbox.size
             loss_bbox = loss_bbox.reshape(())
 

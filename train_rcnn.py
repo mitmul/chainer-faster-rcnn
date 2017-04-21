@@ -46,7 +46,7 @@ if __name__ == '__main__':
     model.to_gpu(0)
 
     warmup(model, train_iter)
-    model.rpn_train = True
+    model.rcnn_train = True
 
     # optimizer = optimizers.Adam()
     # optimizer.setup(model)
