@@ -164,16 +164,6 @@ class AnchorTargetLayer(ProposalLayer):
                 bg_inds, size=int(len(bg_inds) - num_bg), replace=False)
             labels[disable_inds] = -1
 
-        # # subsample negative labels for the same number of positive labels
-        # bg_inds = xp.where(labels == 0)[0]
-        # if len(bg_inds) != len(fg_inds):
-        #     # TODO(mitmul): Current cupy.random.choice doesn't support
-        #     #               replace=False
-        #     bg_inds = cuda.to_cpu(bg_inds)
-        #     disable_inds = np.random.choice(
-        #         bg_inds, size=int(len(bg_inds) - len(fg_inds)), replace=False)
-        #     labels[disable_inds] = -1
-
         # TODO(mitmul): Remove this when cupy.random.choice with
         #                replace=False becomes available
         labels = xp.asarray(labels)

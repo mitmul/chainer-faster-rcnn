@@ -35,9 +35,7 @@ There's a known problem in cpu_nms.pyx. But a workaround has been posted [here](
 ### 1\. Build extensions
 
 ```
-cd lib
 python setup.py build_ext -i
-cd ..
 ```
 
 ## Inference
@@ -86,7 +84,7 @@ pip install chainercv
 ### 2\. Start training
 
 ```
-python train.py
+python train_rpn.py
 ```
 
 ## Faster R-CNN Architecture
