@@ -120,103 +120,101 @@ class ProposalLayer(object):
 
         """
         if self.type_check_enable:
-            self._check_data_type_forward(rpn_cls_prob, rpn_bbox_pred, img_info)
+            self._check_data_type_forward(
+                rpn_cls_prob, rpn_bbox_pred, img_info)
 
-        xp = cuda.get_array_module(rpn_cls_prob)
+        with cuda.get_device_from_array(rpn_cls_prob.data) as d:
+            xp = cuda.get_array_module(rpn_cls_prob)
 
-        # Currently it assumes that the batchsize is always 1
-        rpn_cls_prob = rpn_cls_prob.data[0]
-        rpn_bbox_pred = rpn_bbox_pred.data[0]
-        img_info = img_info.data[0]
+            # Currently it assumes that the batchsize is always 1
+            rpn_cls_prob = rpn_cls_prob.data[0]
+            rpn_bbox_pred = rpn_bbox_pred.data[0]
+            img_info = img_info.data[0]
 
-        # Generate all regions whose scale is at the input image plane
-        all_bbox = self._generate_all_bbox_use_array_info(rpn_bbox_pred)
+            # Generate all regions whose scale is at the input image plane
+            all_bbox = self._generate_all_bbox_use_array_info(rpn_bbox_pred)
 
-        # Reshape anchor transformation to (A * feat_h * feat_w, 4)
-        bbox_trans = rpn_bbox_pred.transpose(1, 2, 0).reshape(-1, 4)
+            # Reshape anchor transformation to (A * feat_h * feat_w, 4)
+            bbox_trans = rpn_bbox_pred.transpose(1, 2, 0).reshape(-1, 4)
 
-        # Apply the transformation to the base anchors
-        proposals = bbox_transform_inv(all_bbox, bbox_trans)
+            # Apply the transformation to the base anchors
+            proposals = bbox_transform_inv(all_bbox, bbox_trans)
 
-        # Clip predicted boxes to image
-        proposals = clip_boxes(proposals, img_info)
+            # Clip predicted boxes to image
+            proposals = clip_boxes(proposals, img_info)
 
-        # Remove predicted boxes with either height or width < threshold
-        keep = filter_boxes(proposals, self._min_size)
-        proposals = proposals[keep]
+            # Remove predicted boxes with either height or width < threshold
+            keep = filter_boxes(proposals, self._min_size)
+            proposals = proposals[keep]
 
-        # the first set of _num_anchors channels are bg probs
-        # the second set are the fg probs
-        fg_probs = rpn_cls_prob[self._num_anchors:]
-        fg_probs = fg_probs.transpose(1, 2, 0).reshape(-1, 1)
-        fg_probs = fg_probs[keep]
+            # the first set of _num_anchors channels are bg probs
+            # the second set are the fg probs
+            fg_probs = rpn_cls_prob[self._num_anchors:]
+            fg_probs = fg_probs.transpose(1, 2, 0).reshape(-1, 1)
+            fg_probs = fg_probs[keep]
 
-        # Sort all (proposal, score) pairs by score from highest to lowest and
-        # take top pre_nms_topN (e.g. 6000)
-        order = fg_probs.ravel()
+            # Sort all (proposal, score) pairs by score from highest to lowest and
+            # take top pre_nms_topN (e.g. 6000)
+            order = fg_probs.ravel()
 
-        # TODO(mitmul): User cupy.argsort when it becomes available
-        if isinstance(order, cuda.cupy.ndarray):
-            order = cuda.to_cpu(order).argsort()[::-1]
-            order = xp.asarray(order)
-        else:
-            order = order.argsort()[::-1]
+            # TODO(mitmul): User cupy.argsort when it becomes available
+            if isinstance(order, cuda.cupy.ndarray):
+                order = cuda.to_cpu(order).argsort()[::-1]
+                order = xp.asarray(order)
+            else:
+                order = order.argsort()[::-1]
 
-        if self._pre_nms_top_n > 0:
-            order = order[:self._pre_nms_top_n]
-        proposals = proposals[order]
-        fg_probs = fg_probs[order]
+            if self._pre_nms_top_n > 0:
+                order = order[:self._pre_nms_top_n]
+            proposals = proposals[order]
+            fg_probs = fg_probs[order]
 
-        # Apply nms (e.g. threshold = 0.7)
-        # Take after_nms_top_n (e.g. 300)
-        # return the top proposals (-> RoIs top)
-        # TODO(mitmul): Fix this workaround for GPU memory limit
-        proposals = cuda.to_cpu(proposals)
-        fg_probs = cuda.to_cpu(fg_probs)
-        keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+            # Apply nms (e.g. threshold = 0.7)
+            # Take after_nms_top_n (e.g. 300)
+            # return the top proposals (-> RoIs top)
+            # TODO(mitmul): Fix this workaround for GPU memory limit
+            proposals = cuda.to_cpu(proposals)
+            fg_probs = cuda.to_cpu(fg_probs)
+            keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
 
-        # if xp is not cuda.cupy:
-        #     keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
-        # else:
-        #     # TODO(mitmul): Improve gpu_nms to take GPU array directly
-        #     dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(
-        #         np.float32)
-        #     keep = gpu_nms(dets, self._nms_thresh)
-        #     keep = xp.asarray(keep)
+            # if xp is not cuda.cupy:
+            #     keep = cpu_nms(np.hstack((proposals, fg_probs)), self._nms_thresh)
+            # else:
+            #     # TODO(mitmul): Improve gpu_nms to take GPU array directly
+            #     dets = cuda.to_cpu(xp.hstack((proposals, fg_probs))).astype(
+            #         np.float32)
+            #     keep = gpu_nms(dets, self._nms_thresh)
+            #     keep = xp.asarray(keep)
 
-        if self._post_nms_top_n > 0:
-            keep = keep[:self._post_nms_top_n]
+            if self._post_nms_top_n > 0:
+                keep = keep[:self._post_nms_top_n]
 
-        proposals = proposals[keep]
-        fg_probs = fg_probs[keep]
+            proposals = proposals[keep]
+            fg_probs = fg_probs[keep]
 
-        proposals = xp.asarray(proposals)
-        fg_probs = xp.asarray(fg_probs)
+            proposals = xp.asarray(proposals)
+            fg_probs = xp.asarray(fg_probs)
 
-        return proposals, fg_probs
+            return proposals, fg_probs
 
     def _generate_all_bbox_use_array_info(self, rpn_bbox_pred):
-        xp = cuda.get_array_module(rpn_bbox_pred)
-        _, feat_h, feat_w = rpn_bbox_pred.shape
-        return self._generate_all_bbox(feat_h, feat_w, xp)
+        with cuda.get_device_from_array(rpn_bbox_pred) as d:
+            xp = cuda.get_array_module(rpn_bbox_pred)
+            _, feat_h, feat_w = rpn_bbox_pred.shape
+            return xp.asarray(self._generate_all_bbox(feat_h, feat_w),
+                              dtype=xp.float32)
 
-    def _generate_all_bbox(self, feat_h, feat_w, xp=None):
-        xp = np if xp is None else xp
-
+    def _generate_all_bbox(self, feat_h, feat_w):
         # Create lattice (base points to shift anchors)
-        shift_x = xp.arange(0, feat_w) * self._feat_stride
-        shift_y = xp.arange(0, feat_h) * self._feat_stride
-        shift_x, shift_y = xp.meshgrid(shift_x, shift_y)
-        shifts = xp.vstack((shift_x.ravel(), shift_y.ravel(),
+        shift_x = np.arange(0, feat_w) * self._feat_stride
+        shift_y = np.arange(0, feat_h) * self._feat_stride
+        shift_x, shift_y = np.meshgrid(shift_x, shift_y)
+        shifts = np.vstack((shift_x.ravel(), shift_y.ravel(),
                             shift_x.ravel(), shift_y.ravel())).transpose()
 
         # Create all bbox
         A = self._num_anchors
         K = len(shifts)  # number of base points = feat_h * feat_w
-
-        if xp is cuda.cupy \
-                and not isinstance(self._anchors, cuda.cupy.ndarray):
-            self._anchors = xp.asarray(self._anchors)
 
         bbox = self._anchors.reshape(1, A, 4) + shifts.reshape(K, 1, 4)
         bbox = bbox.reshape(K * A, 4)

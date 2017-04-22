@@ -59,6 +59,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
         self._n_fg_rois = int(self.FG_FRACTION * self.ROIS_PER_IMAGE)
 
     def _check_data_type_forward(self, proposals, gt_boxes):
+        assert len(proposals) > 0
         assert proposals.ndim == 2
         assert proposals.shape[1] == 4
         assert proposals.dtype.kind == 'f'
@@ -98,6 +99,8 @@ class ProposalTargetLayer(AnchorTargetLayer):
 
         # Select foreground RoIs as those with >= FG_THRESH overlap with any GT
         fg_inds = xp.where(max_overlaps >= self.FG_THRESH)[0]
+        if len(fg_inds) == 0:
+            print(len(fg_inds))
         # Guard against when an image has more than n_fg_rois foreground RoIs
         n_fg_rois_per_image = min(self._n_fg_rois, fg_inds.size)
         # Sample foreground regions without replacement
@@ -136,7 +139,7 @@ class ProposalTargetLayer(AnchorTargetLayer):
         use_gt_boxes = gt_boxes[argmax_overlaps_inds[keep_inds]]
         bbox_reg_targets = bbox_transform(proposals, use_gt_boxes)
 
-        # Convert bbox_reg_targets into class-wise form
+        # Convert bbox_reg_targets into class-wise
         ext_bbox_reg_targets = xp.zeros(
             (len(keep_inds), 4 * self._num_classes), dtype=xp.float32)
         object_inds = xp.where(use_gt_boxes[:, 4] > 0)[0]

@@ -39,115 +39,92 @@ def bbox_transform(ex_rois, gt_rois):
 
 
 def bbox_transform_inv(boxes, trans):
-    xp = cuda.get_array_module(boxes)
-    if isinstance(xp, cuda.cupy.ndarray):
-        with cuda.get_device_from_array(boxes):
-            return _bbox_transform_inv(boxes, trans)
-    else:
-        return _bbox_transform_inv(boxes, trans)
+    with cuda.get_device_from_array(boxes) as d:
+        xp = cuda.get_array_module(boxes)
+        if d.id >= 0:
+            trans = cuda.to_gpu(trans, d)
+            assert trans.device == boxes.device
 
+        if boxes.shape[0] == 0:
+            return xp.zeros((0, trans.shape[1]), dtype=trans.dtype)
 
-def _bbox_transform_inv(boxes, trans):
-    xp = cuda.get_array_module(boxes)
+        widths = boxes[:, 2] - boxes[:, 0] + 1.0
+        heights = boxes[:, 3] - boxes[:, 1] + 1.0
+        ctr_x = boxes[:, 0] + 0.5 * widths
+        ctr_y = boxes[:, 1] + 0.5 * heights
 
-    if boxes.shape[0] == 0:
-        return xp.zeros((0, trans.shape[1]), dtype=trans.dtype)
+        dx = trans[:, 0::4]
+        dy = trans[:, 1::4]
+        dw = trans[:, 2::4]
+        dh = trans[:, 3::4]
 
-    widths = boxes[:, 2] - boxes[:, 0] + 1.0
-    heights = boxes[:, 3] - boxes[:, 1] + 1.0
-    ctr_x = boxes[:, 0] + 0.5 * widths
-    ctr_y = boxes[:, 1] + 0.5 * heights
+        pred_ctr_x = dx * widths[:, xp.newaxis] + ctr_x[:, xp.newaxis]
+        pred_ctr_y = dy * heights[:, xp.newaxis] + ctr_y[:, xp.newaxis]
+        pred_w = xp.exp(dw) * widths[:, xp.newaxis]
+        pred_h = xp.exp(dh) * heights[:, xp.newaxis]
 
-    dx = trans[:, 0::4]
-    dy = trans[:, 1::4]
-    dw = trans[:, 2::4]
-    dh = trans[:, 3::4]
+        pred_boxes = xp.zeros(trans.shape, dtype=trans.dtype)
+        # x1
+        pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w
+        # y1
+        pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h
+        # x2
+        pred_boxes[:, 2::4] = pred_ctr_x + 0.5 * pred_w
+        # y2
+        pred_boxes[:, 3::4] = pred_ctr_y + 0.5 * pred_h
 
-    pred_ctr_x = dx * widths[:, xp.newaxis] + ctr_x[:, xp.newaxis]
-    pred_ctr_y = dy * heights[:, xp.newaxis] + ctr_y[:, xp.newaxis]
-    pred_w = xp.exp(dw) * widths[:, xp.newaxis]
-    pred_h = xp.exp(dh) * heights[:, xp.newaxis]
-
-    pred_boxes = xp.zeros(trans.shape, dtype=trans.dtype)
-    # x1
-    pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w
-    # y1
-    pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h
-    # x2
-    pred_boxes[:, 2::4] = pred_ctr_x + 0.5 * pred_w
-    # y2
-    pred_boxes[:, 3::4] = pred_ctr_y + 0.5 * pred_h
-
-    return pred_boxes
+        return pred_boxes
 
 
 def clip_boxes(boxes, im_shape):
-    xp = cuda.get_array_module(boxes)
-    if isinstance(xp, cuda.cupy.ndarray):
-        with cuda.get_device(boxes):
-            return _clip_boxes(boxes, im_shape)
-    else:
-        return _clip_boxes(boxes, im_shape)
-
-
-def _clip_boxes(boxes, im_shape):
     """Clip boxes to image boundaries."""
-    xp = cuda.get_array_module(boxes)
+    with cuda.get_device_from_array(boxes) as d:
+        xp = cuda.get_array_module(boxes)
+        if d.id >= 0:
+            im_shape = cuda.to_gpu(im_shape, d)
+            assert boxes.device == im_shape.device
 
-    # x1 >= 0
-    boxes[:, 0::4] = xp.maximum(
-        xp.minimum(boxes[:, 0::4], int(im_shape[1] - 1)), 0)
-    # y1 >= 0
-    boxes[:, 1::4] = xp.maximum(
-        xp.minimum(boxes[:, 1::4], int(im_shape[0] - 1)), 0)
-    # x2 < im_shape[1]
-    boxes[:, 2::4] = xp.maximum(
-        xp.minimum(boxes[:, 2::4], int(im_shape[1] - 1)), 0)
-    # y2 < im_shape[0]
-    boxes[:, 3::4] = xp.maximum(
-        xp.minimum(boxes[:, 3::4], int(im_shape[0] - 1)), 0)
-    return boxes
+        # x1 >= 0
+        boxes[:, 0::4] = xp.maximum(
+            xp.minimum(boxes[:, 0::4], int(im_shape[1] - 1)), 0)
+        # y1 >= 0
+        boxes[:, 1::4] = xp.maximum(
+            xp.minimum(boxes[:, 1::4], int(im_shape[0] - 1)), 0)
+        # x2 < im_shape[1]
+        boxes[:, 2::4] = xp.maximum(
+            xp.minimum(boxes[:, 2::4], int(im_shape[1] - 1)), 0)
+        # y2 < im_shape[0]
+        boxes[:, 3::4] = xp.maximum(
+            xp.minimum(boxes[:, 3::4], int(im_shape[0] - 1)), 0)
+        return boxes
 
 
 def filter_boxes(boxes, min_size):
-    xp = cuda.get_array_module(boxes)
-    if isinstance(xp, cuda.cupy.ndarray):
-        with cuda.get_device(boxes):
-            return _filter_boxes(boxes, min_size)
-    else:
-        return _filter_boxes(boxes, min_size)
-
-
-def _filter_boxes(boxes, min_size):
     """Remove all boxes with any side smaller than min_size."""
-    xp = cuda.get_array_module(boxes)
-    ws = boxes[:, 2] - boxes[:, 0] + 1
-    hs = boxes[:, 3] - boxes[:, 1] + 1
-    keep = xp.where((ws >= min_size) & (hs >= min_size))[0]
-    return keep
+    with cuda.get_device_from_array(boxes):
+        xp = cuda.get_array_module(boxes)
+        ws = boxes[:, 2] - boxes[:, 0] + 1
+        hs = boxes[:, 3] - boxes[:, 1] + 1
+        keep = xp.where((ws >= min_size) & (hs >= min_size))[0]
+        return keep
 
 
 def keep_inside(anchors, img_info):
-    xp = cuda.get_array_module(anchors)
-    if isinstance(xp, cuda.cupy.ndarray):
-        with cuda.get_device(anchors):
-            return _keep_inside(anchors, img_info)
-    else:
-        return _keep_inside(anchors, img_info)
-
-
-def _keep_inside(anchors, img_info):
     """Calc indicies of anchors which are inside of the image size.
 
     Calc indicies of anchors which are located completely inside of the image
     whose size is speficied by img_info ((height, width, scale)-shaped array).
     """
-    xp = cuda.get_array_module(anchors)
+    with cuda.get_device_from_array(anchors) as d:
+        xp = cuda.get_array_module(anchors)
+        if d.id >= 0:
+            img_info = cuda.to_gpu(img_info, d)
+            assert anchors.device == img_info.device
 
-    inds_inside = xp.where(
-        (anchors[:, 0] >= 0) &
-        (anchors[:, 1] >= 0) &
-        (anchors[:, 2] < img_info[1]) &  # width
-        (anchors[:, 3] < img_info[0])  # height
-    )[0]
-    return inds_inside, anchors[inds_inside]
+        inds_inside = xp.where(
+            (anchors[:, 0] >= 0) &
+            (anchors[:, 1] >= 0) &
+            (anchors[:, 2] < img_info[1]) &  # width
+            (anchors[:, 3] < img_info[0])  # height
+        )[0]
+        return inds_inside, anchors[inds_inside]

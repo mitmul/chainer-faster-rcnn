@@ -2,6 +2,8 @@
 .DS_Store
 .remote-sync.json
 .sync-config.cson
+train_rpn
+train_rcnn
 
 data
 tests/tests

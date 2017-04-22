@@ -103,19 +103,21 @@ class AnchorTargetLayer(ProposalLayer):
         gt_boxes = gt_boxes.data[0]
         img_info = img_info.data[0]
 
-        # (feat_h x feat_w x n_anchors, 4)
-        xp = cuda.get_array_module(gt_boxes)
-        all_bbox = self._generate_all_bbox(feat_h, feat_w, xp)
-        inds_inside, all_inside_bbox = keep_inside(all_bbox, img_info)
-        argmax_overlaps_inds, bbox_labels = \
-            self._create_bbox_labels(inds_inside, all_inside_bbox, gt_boxes)
+        with cuda.get_device_from_array(gt_boxes):
+            # (feat_h x feat_w x n_anchors, 4)
+            xp = cuda.get_array_module(gt_boxes)
+            all_bbox = xp.asarray(self._generate_all_bbox(feat_h, feat_w))
+            inds_inside, all_inside_bbox = keep_inside(all_bbox, img_info)
+            argmax_overlaps_inds, bbox_labels = \
+                self._create_bbox_labels(
+                    inds_inside, all_inside_bbox, gt_boxes)
 
-        # Convert fixed anchors in (x, y, w, h) to (dx, dy, dw, dh)
-        gt_boxes = gt_boxes[argmax_overlaps_inds]
-        bbox_reg_targets = bbox_transform(all_inside_bbox, gt_boxes)
-        bbox_reg_targets = bbox_reg_targets.astype(xp.float32)
+            # Convert fixed anchors in (x, y, w, h) to (dx, dy, dw, dh)
+            gt_boxes = gt_boxes[argmax_overlaps_inds]
+            bbox_reg_targets = bbox_transform(all_inside_bbox, gt_boxes)
+            bbox_reg_targets = bbox_reg_targets.astype(xp.float32)
 
-        return bbox_labels, bbox_reg_targets, inds_inside, len(all_bbox)
+            return bbox_labels, bbox_reg_targets, inds_inside, len(all_bbox)
 
     def _create_bbox_labels(self, inds_inside, anchors, gt_boxes):
         """Create bbox labels.

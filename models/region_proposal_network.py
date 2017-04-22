@@ -145,10 +145,13 @@ class RegionProposalNetwork(Chain):
             rpn_loss = rpn_loss_cls + self._loss_lambda * rpn_loss_bbox
             rpn_loss.name = 'rpn_loss'
 
-            reporter.report({'rpn_loss_cls': rpn_loss_cls,
-                             'rpn_cls_accuracy': rpn_cls_accuracy,
-                             'rpn_loss_bbox': rpn_loss_bbox,
-                             'rpn_loss': rpn_loss}, self)
+            try:
+                reporter.report({'rpn_loss_cls': rpn_loss_cls,
+                                 'rpn_cls_accuracy': rpn_cls_accuracy,
+                                 'rpn_loss_bbox': rpn_loss_bbox,
+                                 'rpn_loss': rpn_loss}, self)
+            except:
+                pass
 
             return rpn_loss
 
@@ -157,23 +160,25 @@ class RegionProposalNetwork(Chain):
     def _calc_rpn_loss_cls(self, rpn_cls_score, bbox_labels, inds_inside,
                            n_all_bbox, feat_h, feat_w):
         # To map up
-        xp = cuda.get_array_module(bbox_labels)
-        bbox_labels_mapped = xp.ones((n_all_bbox,), dtype=xp.int32) * -1
-        bbox_labels_mapped[inds_inside] = bbox_labels
+        with cuda.get_device_from_array(bbox_labels):
+            xp = cuda.get_array_module(bbox_labels)
+            bbox_labels_mapped = xp.ones((n_all_bbox,), dtype=xp.int32) * -1
+            bbox_labels_mapped[inds_inside] = bbox_labels
 
-        # Initially it's in (K x A, 4), so the number of lattices first
-        n_anchors = self.proposal_layer._num_anchors
-        bbox_labels_mapped = bbox_labels_mapped.reshape(1, feat_h, feat_w,
-                                                        n_anchors)
-        bbox_labels_mapped = bbox_labels_mapped.transpose(0, 3, 1, 2)
+            # Initially it's in (K x A, 4), so the number of lattices first
+            n_anchors = self.proposal_layer._num_anchors
+            bbox_labels_mapped = bbox_labels_mapped.reshape(1, feat_h, feat_w,
+                                                            n_anchors)
+            bbox_labels_mapped = bbox_labels_mapped.transpose(0, 3, 1, 2)
 
-        # Classification loss (bg/fg)
-        rpn_cls_score = rpn_cls_score.reshape(1, 2, n_anchors, feat_h,
-                                              feat_w)
-        rpn_loss_cls = F.softmax_cross_entropy(
-            rpn_cls_score, bbox_labels_mapped)
-        rpn_cls_accuracy = F.accuracy(rpn_cls_score, bbox_labels_mapped, -1)
-        return rpn_loss_cls.reshape(()), rpn_cls_accuracy.reshape(())
+            # Classification loss (bg/fg)
+            rpn_cls_score = rpn_cls_score.reshape(1, 2, n_anchors, feat_h,
+                                                  feat_w)
+            rpn_loss_cls = F.softmax_cross_entropy(
+                rpn_cls_score, bbox_labels_mapped)
+            rpn_cls_accuracy = F.accuracy(
+                rpn_cls_score, bbox_labels_mapped, -1)
+            return rpn_loss_cls.reshape(()), rpn_cls_accuracy.reshape(())
 
     def _calc_rpn_loss_bbox(self, rpn_bbox_pred, bbox_reg_targets, inds_inside):
         # rpn_bbox_pred has the shape of (1, 4 x n_anchors, feat_h, feat_w)

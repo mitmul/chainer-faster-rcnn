@@ -41,7 +41,7 @@ if __name__ == '__main__':
     train_iter = iterators.SerialIterator(train_dataset, batchsize)
     model = FasterRCNN()
 
-    chainer.serializers.load_npz('train_rpn/snapshot_487000', model)
+    chainer.serializers.load_npz('train_rpn/snapshot_571000', model)
 
     model.to_gpu(0)
 

@@ -108,69 +108,71 @@ class FasterRCNN(Chain):
             self._check_data_type_forward(x, img_info, gt_boxes)
 
         # Use the array module of the backend of trunk model
-        xp, feature_map = self.trunk.xp, self.trunk(x)
+        with cuda.get_device_from_array(x.data):
+            xp, feature_map = self.trunk.xp, self.trunk(x)
 
-        # RPN training mode
-        if self.rpn_train and gt_boxes is not None:
-            return self.RPN(feature_map, img_info, gt_boxes)
-        else:
-            proposals, probs = self.RPN(feature_map, img_info, gt_boxes)
-            self.rpn_proposals = proposals
-            self.rpn_probs = probs
+            # RPN training mode
+            if self.rpn_train and gt_boxes is not None:
+                return self.RPN(feature_map, img_info, gt_boxes)
+            else:
+                proposals, probs = self.RPN(feature_map, img_info, gt_boxes)
+                self.rpn_proposals = proposals
+                self.rpn_probs = probs
 
-        # RCNN
-        batch_id = xp.zeros((len(proposals), 1), dtype=xp.float32)
-        brois = xp.concatenate((batch_id, proposals), axis=1)
-        pool5 = F.roi_pooling_2d(feature_map, brois, 7, 7, self._spatial_scale)
-        fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.rcnn_train)
-        fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.rcnn_train)
+            # RCNN
+            batch_id = xp.zeros((len(proposals), 1), dtype=xp.float32)
+            brois = xp.concatenate((batch_id, proposals), axis=1)
+            pool5 = F.roi_pooling_2d(feature_map, brois, 7, 7,
+                                     self._spatial_scale)
+            fc6 = F.dropout(F.relu(self.fc6(pool5)), train=self.rcnn_train)
+            fc7 = F.dropout(F.relu(self.fc7(fc6)), train=self.rcnn_train)
 
-        # Per class probability
-        cls_score = self.cls_score(fc7)
+            # Per class probability
+            cls_score = self.cls_score(fc7)
 
-        # BBox predictions
-        bbox_pred = self.bbox_pred(fc7)
+            # BBox predictions
+            bbox_pred = self.bbox_pred(fc7)
 
-        if self.rcnn_train and gt_boxes is not None:
-            # Create proposal target layer if not exsist
-            if not hasattr(self, 'proposal_target_layer'):
-                self.proposal_target_layer = ProposalTargetLayer(
-                    self._feat_stride, self._anchor_ratios,
-                    self._anchor_scales, self._num_classes)
-            use_gt_boxes, bbox_reg_targets, keep_inds = \
-                self.proposal_target_layer(proposals, gt_boxes)
+            if self.rcnn_train and gt_boxes is not None:
+                # Create proposal target layer if not exsist
+                if not hasattr(self, 'proposal_target_layer'):
+                    self.proposal_target_layer = ProposalTargetLayer(
+                        self._feat_stride, self._anchor_ratios,
+                        self._anchor_scales, self._num_classes)
+                use_gt_boxes, bbox_reg_targets, keep_inds = \
+                    self.proposal_target_layer(proposals, gt_boxes)
 
-            # TODO(mitmul): Remove this re-sending below vars to GPU
-            xp = self.RPN.xp
-            if xp is cuda.cupy:
-                use_gt_boxes = xp.asarray(use_gt_boxes)
-                bbox_reg_targets = xp.asarray(bbox_reg_targets)
-                keep_inds = xp.asarray(keep_inds)
+                # TODO(mitmul): Remove this re-sending below vars to GPU
+                xp = self.RPN.xp
+                if xp is cuda.cupy:
+                    use_gt_boxes = xp.asarray(use_gt_boxes)
+                    bbox_reg_targets = xp.asarray(bbox_reg_targets)
+                    keep_inds = xp.asarray(keep_inds)
 
-            # Select predicted scores and calc loss
-            cls_score = cls_score[keep_inds]
-            cls_labels = use_gt_boxes[:, -1].astype(xp.int32)
-            loss_cls = F.softmax_cross_entropy(cls_score, cls_labels)
-            loss_cls = loss_cls.reshape(())
-            cls_acc = F.accuracy(cls_score, cls_labels, -1)
+                # Select predicted scores and calc loss
+                cls_score = cls_score[keep_inds]
+                cls_labels = use_gt_boxes[:, -1].astype(xp.int32)
+                loss_cls = F.softmax_cross_entropy(cls_score, cls_labels)
+                loss_cls = loss_cls.reshape(())
+                cls_acc = F.accuracy(cls_score, cls_labels, -1)
 
-            # Select predicted bbox transformations and calc loss
-            bbox_pred = bbox_pred[keep_inds]
-            loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets,
-                                     self._rcnn_delta)
-            loss_bbox = F.sum(loss_bbox) / loss_bbox.size
-            loss_bbox = loss_bbox.reshape(())
+                # Select predicted bbox transformations and calc loss
+                bbox_pred = bbox_pred[keep_inds]
+                loss_bbox = F.huber_loss(bbox_pred, bbox_reg_targets,
+                                         self._rcnn_delta)
+                loss_bbox = F.sum(loss_bbox) / loss_bbox.size
+                loss_bbox = loss_bbox.reshape(())
 
-            loss_rcnn = loss_cls + loss_bbox
+                loss_rcnn = loss_cls + loss_bbox
 
-            reporter.report({'loss_cls': loss_cls,
-                             'cls_accuracy': cls_acc,
-                             'loss_bbox': loss_bbox,
-                             'loss_rcnn': loss_rcnn}, self)
+                reporter.report({'loss_cls': loss_cls,
+                                 'cls_accuracy': cls_acc,
+                                 'loss_bbox': loss_bbox,
+                                 'loss_rcnn': loss_rcnn}, self)
 
-            return loss_rcnn
+                return loss_rcnn
 
-        pred_boxes = bbox_transform_inv(proposals, bbox_pred.data)
-        pred_boxes = clip_boxes(pred_boxes, img_info.data[0])
+            pred_boxes = bbox_transform_inv(proposals, bbox_pred.data)
+            pred_boxes = clip_boxes(pred_boxes, img_info.data[0])
 
-        return F.softmax(cls_score), pred_boxes
+            return F.softmax(cls_score), pred_boxes
