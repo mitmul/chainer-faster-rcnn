@@ -1,5 +1,7 @@
 # Faster R-CNN
 
+# **This repo has been deprecated. [Here](https://github.com/pfnet/chainercv) is the complete codes for training Faster-RCNN on your data and use the pre-trained Faster-RCNN model for new data: [ChainerCV](https://github.com/pfnet/chainercv)**
+
 This is an experimental implementation of Faster R-CNN in Chainer based on Ross Girshick's work: [py-faster-rcnn codes](https://github.com/rbgirshick/py-faster-rcnn).
 
 ## Requirement
